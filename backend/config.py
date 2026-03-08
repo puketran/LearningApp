@@ -65,7 +65,10 @@ for _dir in [BOOKS_DIR, AUDIOS_DIR, RECORDINGS_DIR, IMAGES_DIR]:
 def _resolve_data_dir() -> str:
     cfg = load_app_config()
     raw = cfg.get("data_dir") or os.getenv("DATA_DIR", "data")
-    return os.path.normpath(raw if os.path.isabs(raw) else os.path.join(BASE_DIR, raw))
+    # Detect Windows absolute paths (C:\...) even when running on Linux
+    def _is_absolute(p: str) -> bool:
+        return os.path.isabs(p) or (len(p) >= 3 and p[1] == ":")
+    return os.path.normpath(raw if _is_absolute(raw) else os.path.join(BASE_DIR, raw))
 
 
 def get_data_dir() -> str:

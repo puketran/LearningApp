@@ -29,8 +29,13 @@ def update_settings():
     if not new_data_dir:
         return jsonify({"error": "data_dir is required"}), 400
 
-    # Resolve to absolute path
-    if not os.path.isabs(new_data_dir):
+    # Resolve to absolute path.
+    # Handle both Unix (/foo/bar) and Windows (C:\foo\bar) absolute paths —
+    # os.path.isabs() returns False for Windows paths when running on Linux.
+    def _is_absolute(p: str) -> bool:
+        return os.path.isabs(p) or (len(p) >= 3 and p[1] == ":")
+
+    if not _is_absolute(new_data_dir):
         new_data_dir = os.path.normpath(os.path.join(BASE_DIR, new_data_dir))
     else:
         new_data_dir = os.path.normpath(new_data_dir)
