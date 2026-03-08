@@ -36,10 +36,32 @@ Learning/
 ├── frontend/                   # Browser-side assets
 │   ├── index.html              # Single-page application shell
 │   └── static/
-│       ├── css/
-│       │   └── styles.css      # All styles
-│       └── js/
-│           └── app.js          # All frontend logic (~4 000 lines)
+│       └── views/
+│           └── components/
+│               ├── css/                     # Styles split by feature
+│               │   ├── base.css             # CSS variables, reset, scrollbar
+│               │   ├── sidebar.css          # Left sidebar & TOC tree
+│               │   ├── content.css          # Main content area, sentences, detail panel
+│               │   ├── flashcard.css        # Flashcard overlay & definition cards
+│               │   ├── vocabs.css           # Vocab list overlay & buttons
+│               │   ├── modals.css           # Modals & context menus
+│               │   ├── responsive.css       # All @media breakpoints
+│               │   ├── books.css            # Book list screen
+│               │   ├── sections.css         # Section tabs, vocab cards, sentence filter
+│               │   └── mindmap.css          # Mindmap overlay, nodes, side panel
+│               └── js/                      # Logic split by feature
+│                   ├── data.js              # Data model, localStorage, auto-save
+│                   ├── toc.js               # TOC rendering & operations
+│                   ├── sections.js          # Section selection & tab switching
+│                   ├── sentences.js         # Sentence rendering & highlighting
+│                   ├── vocabs.js            # Vocab management & vocab panel
+│                   ├── audio.js             # TTS, sentence audio & voice recording
+│                   ├── detail-panel.js      # Sentence/vocab detail side panel
+│                   ├── ai.js                # AI search & translation helpers
+│                   ├── books.js             # Book list, save/load/import/export
+│                   ├── flashcard.js         # Flashcard review overlay
+│                   ├── events.js            # Event listeners & app init
+│                   └── mindmap.js           # Full mindmap engine (layout, render, drag)
 │
 ├── books/                      # Saved book JSON files  (runtime data)
 ├── audios/                     # Generated TTS WAV files (runtime data)
@@ -114,8 +136,14 @@ Open `http://localhost:5000` in your browser.
 
 The entire frontend is a **single-page application** served from `frontend/index.html`.
 
-- `frontend/static/js/app.js` — all UI logic, state management, API calls
-- `frontend/static/css/styles.css` — all styles (CSS custom properties for theming)
+Styles and logic are split into focused files under `frontend/static/views/components/`:
+
+| Layer   | Files                              | Responsibility                                                      |
+| ------- | ---------------------------------- | ------------------------------------------------------------------- |
+| **CSS** | `css/base.css` … `css/mindmap.css` | Ten feature-scoped stylesheets loaded in order                      |
+| **JS**  | `js/data.js` … `js/mindmap.js`     | Twelve modules loaded as plain scripts; globals shared via `window` |
+
+Load order in `index.html` mirrors dependency order (data → toc → sections → … → events → mindmap).
 
 ### API endpoints
 
@@ -149,3 +177,7 @@ The original monolithic files at the project root (`server.py`, `index.html`,
 `styles.css`, `app.js`) are kept for reference. They are **no longer used**
 by `run.py` or `start.bat` and can be deleted once the refactored version is
 verified to be working correctly.
+
+> The previously monolithic `frontend/static/css/styles.css` and
+> `frontend/static/js/app.js` have been removed and replaced by the component
+> files under `frontend/static/views/components/`.

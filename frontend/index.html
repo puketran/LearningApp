@@ -10,7 +10,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/styles.css">
+  <!-- Component CSS -->
+  <link rel="stylesheet" href="/static/views/components/css/base.css">
+  <link rel="stylesheet" href="/static/views/components/css/sidebar.css">
+  <link rel="stylesheet" href="/static/views/components/css/content.css">
+  <link rel="stylesheet" href="/static/views/components/css/flashcard.css">
+  <link rel="stylesheet" href="/static/views/components/css/vocabs.css">
+  <link rel="stylesheet" href="/static/views/components/css/modals.css">
+  <link rel="stylesheet" href="/static/views/components/css/responsive.css">
+  <link rel="stylesheet" href="/static/views/components/css/books.css">
+  <link rel="stylesheet" href="/static/views/components/css/sections.css">
+  <link rel="stylesheet" href="/static/views/components/css/mindmap.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
@@ -675,7 +685,19 @@
     <button id="ctx-delete"><i class="fas fa-trash"></i> Delete</button>
   </div>
 
-  <script src="/static/js/app.js"></script>
+  <!-- Component JS (load order matters — globals are shared) -->
+  <script src="/static/views/components/js/data.js"></script>
+  <script src="/static/views/components/js/toc.js"></script>
+  <script src="/static/views/components/js/sections.js"></script>
+  <script src="/static/views/components/js/sentences.js"></script>
+  <script src="/static/views/components/js/vocabs.js"></script>
+  <script src="/static/views/components/js/audio.js"></script>
+  <script src="/static/views/components/js/detail-panel.js"></script>
+  <script src="/static/views/components/js/ai.js"></script>
+  <script src="/static/views/components/js/books.js"></script>
+  <script src="/static/views/components/js/flashcard.js"></script>
+  <script src="/static/views/components/js/events.js"></script>
+  <script src="/static/views/components/js/mindmap.js"></script>
 </body>
 </html>
 

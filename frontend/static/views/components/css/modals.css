@@ -1,0 +1,137 @@
+/* ===== MODALS ===== */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(30,27,75,0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-content {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg), 0 0 60px rgba(99,102,241,0.08);
+  width: 90%;
+  max-width: 600px;
+  animation: modal-in 0.25s ease;
+}
+
+.modal-sm {
+  max-width: 460px;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, var(--primary-light) 0%, #ffffff 100%);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-body textarea,
+.modal-body input[type="text"] {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-family: var(--font-ui);
+  resize: vertical;
+  outline: none;
+  transition: all var(--transition);
+}
+
+.modal-body textarea:focus,
+.modal-body input[type="text"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+
+.form-group .hint-text {
+  font-weight: 400;
+  color: var(--text-light);
+  font-size: 13px;
+}
+
+/* ===== CONTEXT MENUS ===== */
+.text-context-menu,
+.toc-context-menu {
+  position: fixed;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg), 0 0 30px rgba(99,102,241,0.06);
+  padding: 6px;
+  z-index: 200;
+  min-width: 170px;
+  backdrop-filter: blur(8px);
+}
+
+.text-context-menu button,
+.toc-context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  transition: background var(--transition);
+}
+
+.text-context-menu button:hover,
+.toc-context-menu button:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.toc-context-menu button:last-child:hover {
+  color: var(--danger);
+}
+

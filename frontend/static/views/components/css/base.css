@@ -1,0 +1,86 @@
+/* ===== CSS Variables & Reset ===== */
+:root {
+  --sidebar-width: 300px;
+  --detail-panel-width: 400px;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --primary-light: #eef2ff;
+  --primary-glow: rgba(99,102,241,0.12);
+  --accent: #14b8a6;
+  --accent-hover: #0d9488;
+  --accent-light: #ccfbf1;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --danger-hover: #dc2626;
+  --bg: #f0f4f8;
+  --bg-gradient: linear-gradient(135deg, #f0f4f8 0%, #e8edf5 50%, #f5f0ff 100%);
+  --bg-sidebar: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%);
+  --bg-sidebar-solid: #1e1b4b;
+  --bg-sidebar-hover: rgba(255,255,255,0.08);
+  --bg-card: #ffffff;
+  --bg-card-hover: #fafbff;
+  --text: #1e293b;
+  --text-light: #64748b;
+  --text-sidebar: #e0e7ff;
+  --text-sidebar-dim: #a5b4fc;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
+  --highlight: #fef3c7;
+  --highlight-hover: #fde68a;
+  --highlight-border: #f59e0b;
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 12px 32px rgba(0,0,0,0.12);
+  --shadow-glow: 0 0 20px rgba(99,102,241,0.1);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 4px;
+  --transition: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  --font-base: 16px;
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-reading: 'Merriweather', Georgia, serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  font-size: var(--font-base);
+  background: var(--bg-gradient);
+  color: var(--text);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Better touch scrolling on iOS */
+.main-content,
+.detail-panel-body,
+.toc-tree,
+.vocab-list-content {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent text selection on buttons and UI elements */
+button,
+.btn,
+.toc-item-row,
+.sentence-card .sentence-actions {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 7px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #a5b4fc; }
+

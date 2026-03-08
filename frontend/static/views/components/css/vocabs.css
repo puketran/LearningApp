@@ -1,0 +1,196 @@
+/* ===== VOCAB LIST OVERLAY ===== */
+.vocab-list-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(30,27,75,0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 40px;
+  z-index: 50;
+}
+
+.vocab-list-panel {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg), 0 0 60px rgba(99,102,241,0.08);
+  width: 90%;
+  max-width: 700px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.vocab-list-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, var(--primary-light) 0%, #ffffff 100%);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.vocab-list-header h2 {
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+}
+
+.vocab-list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.vocab-list-item {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition);
+  gap: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.vocab-list-item:hover {
+  background: var(--primary-light);
+}
+
+.vocab-list-item .vl-word {
+  font-weight: 600;
+  min-width: 130px;
+  font-size: 15px;
+  color: var(--primary);
+}
+
+.vocab-list-item .vl-translation {
+  color: var(--text-light);
+  font-size: 14px;
+  flex: 1;
+}
+
+.vocab-list-item .vl-filter-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-light);
+  opacity: 0;
+  transition: all var(--transition);
+}
+
+.vocab-list-item:hover .vl-filter-btn {
+  opacity: 1;
+}
+
+.vocab-list-item .vl-filter-btn:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.vocab-list-empty {
+  text-align: center;
+  color: var(--text-light);
+  padding: 40px;
+  font-style: italic;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.btn-lg {
+  padding: 14px 28px;
+  font-size: 16px;
+  border-radius: var(--radius);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, #818cf8 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.25);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--primary-hover) 0%, var(--primary) 100%);
+  box-shadow: 0 4px 12px rgba(99,102,241,0.35);
+  transform: translateY(-1px);
+}
+
+.btn-accent {
+  background: linear-gradient(135deg, var(--accent) 0%, #2dd4bf 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(20,184,166,0.25);
+}
+
+.btn-accent:hover {
+  background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
+  box-shadow: 0 4px 12px rgba(20,184,166,0.35);
+  transform: translateY(-1px);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(239,68,68,0.2);
+}
+
+.btn-danger:hover {
+  background: var(--danger-hover);
+  box-shadow: 0 4px 12px rgba(239,68,68,0.3);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-outline:hover {
+  background: var(--primary-light);
+  border-color: #c7d2fe;
+  color: var(--primary);
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--text-light);
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+  border-radius: 50%;
+  transition: all var(--transition);
+}
+
+.btn-close:hover {
+  color: var(--text);
+  background: var(--bg);
+}
+
