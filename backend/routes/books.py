@@ -10,6 +10,7 @@ import zipfile
 from flask import Blueprint, jsonify, request, send_file
 
 from ..config import get_books_dir, get_images_dir
+from .users import add_book_to_user, remove_book_from_user, rename_book_in_user, get_user_books
 
 logger = logging.getLogger(__name__)
 
@@ -24,37 +25,98 @@ def _sanitize_book_name(name: str) -> str:
 
 @books_bp.route("", methods=["GET"])
 def list_books():
-    """List every book JSON file found in the books directory.
+    """List books for a user.
 
-    Optional query param ``user_id`` — when supplied only books whose stored
-    ``user_id`` field matches are returned.  Books that have no ``user_id``
-    field (legacy / pre-user books) are shown to everyone.
+    When ``user_id`` is supplied the list is sourced from the user's ``books``
+    array in users.json.  Books whose ``user_id`` field matches but that are
+    not yet registered in users.json are auto-migrated into the list.
+    Without ``user_id`` every book file in the directory is returned.
     """
     filter_uid = request.args.get("user_id", "").strip() or None
     books_dir = get_books_dir()
-    logger.info("[LIST] scanning books dir: %s", books_dir)
+    logger.info("[LIST] scanning books dir: %s  filter_uid=%s", books_dir, filter_uid)
+    books = []
+
+    if filter_uid:
+        # Primary source: user's book list in users.json
+        registered = set(get_user_books(filter_uid))
+        to_migrate = []  # filenames found on disk by user_id field but not registered yet
+
+        for filepath in glob.glob(os.path.join(books_dir, "*.json")):
+            try:
+                with open(filepath, encoding="utf-8") as fh:
+                    data = json.load(fh)
+            except Exception:
+                continue
+
+            fname = os.path.basename(filepath)
+            book_uid = data.get("user_id")
+            in_registered = fname in registered
+            in_legacy = book_uid == filter_uid
+
+            if not in_registered and not in_legacy:
+                continue
+
+            # Auto-migrate: book belongs to user but wasn't in their list yet
+            if not in_registered and in_legacy:
+                to_migrate.append(fname)
+
+            inner = data.get("data", data)
+            cfg = inner.get("config", {}) if isinstance(inner, dict) else {}
+            logger.info("[LIST]   + serving: %s", filepath)
+            books.append({
+                "filename": fname,
+                "name": data.get("name", fname.replace(".json", "")),
+                "chapters": len(data.get("toc", []) or (inner.get("toc", []) if isinstance(inner, dict) else [])),
+                "fromLang": cfg.get("fromLang", ""),
+                "toLang": cfg.get("toLang", ""),
+            })
+
+        # Persist any migrated books into users.json
+        for fname in to_migrate:
+            logger.info("[LIST] auto-migrating book '%s' into user %s books list", fname, filter_uid)
+            add_book_to_user(filter_uid, fname)
+    else:
+        # No user filter — return everything
+        for filepath in glob.glob(os.path.join(books_dir, "*.json")):
+            try:
+                with open(filepath, encoding="utf-8") as fh:
+                    data = json.load(fh)
+                inner = data.get("data", data)
+                cfg = inner.get("config", {}) if isinstance(inner, dict) else {}
+                fname = os.path.basename(filepath)
+                books.append({
+                    "filename": fname,
+                    "name": data.get("name", fname.replace(".json", "")),
+                    "chapters": len(data.get("toc", []) or (inner.get("toc", []) if isinstance(inner, dict) else [])),
+                    "fromLang": cfg.get("fromLang", ""),
+                    "toLang": cfg.get("toLang", ""),
+                })
+            except Exception:
+                continue
+
+    return jsonify({"books": books})
+
+
+@books_bp.get("/all")
+def list_all_books():
+    """List every book JSON file in the books directory, no user filter."""
+    books_dir = get_books_dir()
+    logger.info("[LIST-ALL] scanning books dir: %s", books_dir)
     books = []
     for filepath in glob.glob(os.path.join(books_dir, "*.json")):
         try:
             with open(filepath, encoding="utf-8") as fh:
                 data = json.load(fh)
             name = data.get("name", os.path.basename(filepath).replace(".json", ""))
-            # Pull language config from data.config (new format) or top-level config
             inner = data.get("data", data)
             cfg = inner.get("config", {}) if isinstance(inner, dict) else {}
-
-            # User filtering: when a user is logged in, only show their books.
-            # Books with no user_id were created before the user system —
-            # they are hidden unless no filter is active (admin/no-user mode).
-            book_uid = data.get("user_id")
-            if filter_uid and book_uid != filter_uid:
-                continue
-
-            logger.info("[LIST]   + serving: %s", filepath)
+            logger.info("[LIST-ALL]   + %s", filepath)
             books.append(
                 {
                     "filename": os.path.basename(filepath),
                     "name": name,
+                    "user_id": data.get("user_id"),
                     "chapters": len(data.get("toc", []) or (inner.get("toc", []) if isinstance(inner, dict) else [])),
                     "fromLang": cfg.get("fromLang", ""),
                     "toLang": cfg.get("toLang", ""),
@@ -62,7 +124,39 @@ def list_books():
             )
         except Exception:
             continue
-    return jsonify({"books": books})
+    return jsonify({"books": books, "total": len(books)})
+
+
+@books_bp.get("/file/<path:filename>")
+def get_book(filename):
+    """Load and return a single book by filename. No user check."""
+    filename = os.path.basename(filename)  # strip any path traversal
+    filepath = os.path.join(get_books_dir(), filename)
+    logger.info("[GET-BOOK] reading: %s", filepath)
+    if not os.path.isfile(filepath):
+        logger.warning("[GET-BOOK] NOT FOUND: %s", filepath)
+        return jsonify({"error": "Book not found"}), 404
+    try:
+        with open(filepath, encoding="utf-8") as fh:
+            book_data = json.load(fh)
+        display_name = book_data.get("name", filename.replace(".json", ""))
+        logger.info("[GET-BOOK] serving '%s'", display_name)
+        if "data" in book_data:
+            return jsonify({"name": display_name, "user_id": book_data.get("user_id"), "data": book_data["data"]})
+        # Legacy flat format
+        return jsonify({
+            "name": display_name,
+            "user_id": book_data.get("user_id"),
+            "data": {
+                "toc": book_data.get("toc", []),
+                "sentences": book_data.get("sentences", {}),
+                "vocabs": book_data.get("vocabs", []),
+                "config": book_data.get("config", {}),
+            },
+        })
+    except Exception as exc:
+        logger.exception("[GET-BOOK] failed to read %s: %s", filepath, exc)
+        return jsonify({"error": "Failed to read book"}), 500
 
 
 @books_bp.route("/save", methods=["POST"])
@@ -100,6 +194,9 @@ def save_book():
         with open(filepath, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2)
         logger.info("[SAVE] book saved OK: %s", filepath)
+        # Register filename in user's book list in users.json
+        if user_id:
+            add_book_to_user(user_id, filename)
         return jsonify({"success": True, "filename": filename})
     except Exception as exc:
         logger.exception("save_book error")
@@ -158,6 +255,14 @@ def delete_book():
     filepath = os.path.join(get_books_dir(), filename)
     try:
         if os.path.isfile(filepath):
+            # Read owner before deleting so we can update users.json
+            try:
+                with open(filepath, encoding="utf-8") as fh:
+                    owner_id = json.load(fh).get("user_id")
+                if owner_id:
+                    remove_book_from_user(owner_id, filename)
+            except Exception:
+                pass
             os.remove(filepath)
             logger.info("Book deleted: %s", filename)
         return jsonify({"success": True})
@@ -212,6 +317,11 @@ def rename_book():
         # Remove the old file only when the path actually changed
         if os.path.abspath(old_path) != os.path.abspath(new_path) and os.path.isfile(old_path):
             os.remove(old_path)
+
+        # Update filename in user's book list
+        owner_id = book_data.get("user_id")
+        if owner_id:
+            rename_book_in_user(owner_id, old_filename, new_filename)
 
         logger.info("Book renamed: %s → %s", old_filename, new_filename)
         return jsonify({"success": True, "filename": new_filename, "name": new_name})
@@ -360,6 +470,9 @@ def import_book():
             with open(dest_path, "w", encoding="utf-8") as fh:
                 json.dump(book_data, fh, ensure_ascii=False, indent=2)
             logger.info("[IMPORT] book saved OK: %s", dest_path)
+            # Register in user's book list
+            if import_uid:
+                add_book_to_user(import_uid, candidate)
 
             # ── Extract images ────────────────────────────────────────────
             for name in names:

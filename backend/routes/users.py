@@ -48,6 +48,57 @@ def _save_users(users: list) -> None:
         json.dump(users, fh, ensure_ascii=False, indent=2)
 
 
+# ── Book-list helpers (called by books.py) ────────────────────────────────────
+
+def get_user_books(user_id: str) -> list:
+    """Return the list of book filenames stored for *user_id* in users.json."""
+    for u in _load_users():
+        if u["id"] == user_id:
+            return u.get("books") or []
+    return []
+
+
+def add_book_to_user(user_id: str, filename: str) -> None:
+    """Append *filename* to the user's books list (no-op if already present)."""
+    users = _load_users()
+    for u in users:
+        if u["id"] == user_id:
+            books = u.setdefault("books", [])
+            if filename not in books:
+                books.append(filename)
+            _save_users(users)
+            logger.info("[USERS] added book '%s' → user %s", filename, user_id)
+            return
+    logger.warning("[USERS] add_book_to_user: user %s not found", user_id)
+
+
+def remove_book_from_user(user_id: str, filename: str) -> None:
+    """Remove *filename* from the user's books list."""
+    users = _load_users()
+    for u in users:
+        if u["id"] == user_id:
+            before = len(u.get("books") or [])
+            u["books"] = [b for b in (u.get("books") or []) if b != filename]
+            if len(u["books"]) != before:
+                _save_users(users)
+                logger.info("[USERS] removed book '%s' from user %s", filename, user_id)
+            return
+
+
+def rename_book_in_user(user_id: str, old_filename: str, new_filename: str) -> None:
+    """Replace *old_filename* with *new_filename* in the user's books list."""
+    users = _load_users()
+    for u in users:
+        if u["id"] == user_id:
+            u["books"] = [
+                new_filename if b == old_filename else b
+                for b in (u.get("books") or [])
+            ]
+            _save_users(users)
+            logger.info("[USERS] renamed book %s → %s for user %s", old_filename, new_filename, user_id)
+            return
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 
 @users_bp.route("", methods=["GET"])
