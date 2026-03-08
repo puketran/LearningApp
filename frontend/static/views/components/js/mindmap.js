@@ -18,6 +18,45 @@ let mmIsDragging = false;
 let mmDragGhost = null;
 let mmDragStartPos = { x: 0, y: 0 };
 
+// ── Image blob cache ─────────────────────────────────────────────────────────
+// Each image file is fetched once per page session and stored as an ObjectURL.
+// Re-renders skip the network entirely and reuse the cached URL.
+const _mmImageCache = new Map(); // filename → objectURL | 'loading'
+
+function _mmSetImageSrc(imgEl, filename) {
+  if (!filename) return;
+  const cached = _mmImageCache.get(filename);
+  if (cached && cached !== 'loading') {
+    imgEl.src = cached;
+    return;
+  }
+  // Mark element so we can fill it when the fetch completes
+  imgEl.dataset.mmimg = filename;
+  if (cached === 'loading') return; // fetch already in-flight
+  _mmImageCache.set(filename, 'loading');
+  fetch(`${API_BASE}/images/${filename}`)
+    .then(r => r.ok ? r.blob() : Promise.reject(r.status))
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      _mmImageCache.set(filename, url);
+      // Apply to every img element waiting for this filename
+      document.querySelectorAll(`img[data-mmimg="${filename}"]`).forEach(el => {
+        el.src = url;
+        delete el.dataset.mmimg;
+      });
+    })
+    .catch(err => {
+      _mmImageCache.delete(filename); // allow retry next time
+      console.warn('[mmImage] failed to load:', filename, err);
+    });
+}
+
+function _mmEvictImage(filename) {
+  const url = _mmImageCache.get(filename);
+  if (url && url !== 'loading') URL.revokeObjectURL(url);
+  _mmImageCache.delete(filename);
+}
+
 function createMindmapNode(text, parentId) {
   return { id: uid(), text: text || '', desc: '', image: '', imageSize: 'small', imageHidden: false, collapsed: false, children: [], _parentId: parentId || null };
 }
@@ -624,7 +663,7 @@ function renderNodes(node, positions, container, level, readonly) {
       labelEl.style.flexDirection = 'column';
       const imgEl = document.createElement('img');
       imgEl.className = 'mm-node-image';
-      imgEl.src = `${API_BASE}/images/${node.image}`;
+      _mmSetImageSrc(imgEl, node.image);
       imgEl.alt = node.text || 'Node image';
       imgEl.style.maxWidth = imgSize + 'px';
       imgEl.style.maxHeight = imgSize + 'px';
@@ -806,7 +845,7 @@ function openMindmapSidePanel(nodeId) {
   if (node.image) {
     placeholder.style.display = 'none';
     preview.style.display = 'block';
-    previewImg.src = `${API_BASE}/images/${node.image}`;
+    _mmSetImageSrc(previewImg, node.image);
     resizeBtns.style.display = 'flex';
     // Set active size button (none active if hidden)
     document.querySelectorAll('.mm-resize-btn[data-size]').forEach(btn => {
@@ -1410,16 +1449,18 @@ async function deleteMindmapImage() {
 
   if (!confirm('Delete this image?')) return;
 
+  const deletingFilename = node.image;
   try {
     await fetch(`${API_BASE}/api/images/delete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: node.image })
+      body: JSON.stringify({ filename: deletingFilename })
     });
   } catch (err) {
     console.error('Image delete request failed:', err);
   }
 
+  _mmEvictImage(deletingFilename); // free ObjectURL from cache
   node.image = '';
   saveMindmap();
   renderMindmap();
