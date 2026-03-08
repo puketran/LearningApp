@@ -5,7 +5,7 @@ import os
 
 from flask import Blueprint, jsonify, request, send_from_directory
 
-from ..config import RECORDINGS_DIR
+from ..config import get_recordings_dir
 from ..utils.file_utils import safe_id
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ def upload_recording():
         return jsonify({"error": "No sentence ID provided"}), 400
 
     filename = f"{safe_id(sentence_id)}.webm"
-    filepath = os.path.join(RECORDINGS_DIR, filename)
+    filepath = os.path.join(get_recordings_dir(), filename)
 
     try:
         audio_file.save(filepath)
@@ -47,7 +47,7 @@ def check_recording():
     filename = f"{safe_id(sentence_id)}.webm"
     return jsonify(
         {
-            "exists": os.path.isfile(os.path.join(RECORDINGS_DIR, filename)),
+            "exists": os.path.isfile(os.path.join(get_recordings_dir(), filename)),
             "filename": filename,
         }
     )
@@ -56,4 +56,4 @@ def check_recording():
 @recordings_bp.route("/recordings/<path:filename>")
 def serve_recording(filename):
     """Serve a WebM recording file from the recordings directory."""
-    return send_from_directory(RECORDINGS_DIR, filename)
+    return send_from_directory(get_recordings_dir(), filename)

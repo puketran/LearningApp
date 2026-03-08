@@ -5,7 +5,7 @@ import os
 
 from flask import Blueprint, jsonify, request, send_from_directory
 
-from ..config import AUDIOS_DIR, SPEECH_KEY, SPEECH_REGION
+from ..config import get_audios_dir, SPEECH_KEY, SPEECH_REGION
 from ..services.tts_service import synthesize
 from ..utils.file_utils import sanitize_name, voice_slug
 
@@ -30,7 +30,7 @@ def generate_tts():
         return jsonify({"error": "Azure Speech Service not configured"}), 500
 
     filename = f"{sanitize_name(word)}__{voice_slug(voice)}.wav"
-    filepath = os.path.join(AUDIOS_DIR, filename)
+    filepath = os.path.join(get_audios_dir(), filename)
 
     if os.path.isfile(filepath):
         return jsonify({"success": True, "filename": filename})
@@ -51,7 +51,7 @@ def check_tts():
 
     filename = sanitize_name(word) + ".wav"
     return jsonify(
-        {"exists": os.path.isfile(os.path.join(AUDIOS_DIR, filename)), "filename": filename}
+        {"exists": os.path.isfile(os.path.join(get_audios_dir(), filename)), "filename": filename}
     )
 
 
@@ -72,7 +72,7 @@ def generate_sentence_tts():
         return jsonify({"error": "Azure Speech Service not configured"}), 500
 
     filename = f"sentence_{sentence_id}__{voice_slug(voice)}.wav"
-    filepath = os.path.join(AUDIOS_DIR, filename)
+    filepath = os.path.join(get_audios_dir(), filename)
 
     if os.path.isfile(filepath):
         return jsonify({"success": True, "filename": filename})
@@ -93,11 +93,11 @@ def check_sentence_tts():
 
     filename = f"sentence_{sentence_id}.wav"
     return jsonify(
-        {"exists": os.path.isfile(os.path.join(AUDIOS_DIR, filename)), "filename": filename}
+        {"exists": os.path.isfile(os.path.join(get_audios_dir(), filename)), "filename": filename}
     )
 
 
 @tts_bp.route("/audios/<path:filename>")
 def serve_audio(filename):
     """Serve a WAV file from the audios directory."""
-    return send_from_directory(AUDIOS_DIR, filename)
+    return send_from_directory(get_audios_dir(), filename)

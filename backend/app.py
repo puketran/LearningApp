@@ -27,6 +27,7 @@ def create_app() -> Flask:
     from .routes.books import books_bp
     from .routes.images import images_bp
     from .routes.recordings import recordings_bp
+    from .routes.settings import settings_bp
     from .routes.tts import tts_bp
 
     app = Flask(
@@ -42,6 +43,7 @@ def create_app() -> Flask:
     app.register_blueprint(tts_bp)          # /api/tts/*, /audios/<file>
     app.register_blueprint(recordings_bp)   # /api/recordings/*, /recordings/<file>
     app.register_blueprint(images_bp)       # /api/images/*, /images/<file>
+    app.register_blueprint(settings_bp)     # /api/settings
 
     # ── SPA catch-all — serve index.html ────────────────────────────────────
     @app.route("/")

@@ -9,7 +9,7 @@ import zipfile
 
 from flask import Blueprint, jsonify, request, send_file
 
-from ..config import BOOKS_DIR, IMAGES_DIR
+from ..config import get_books_dir, get_images_dir
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def _sanitize_book_name(name: str) -> str:
 def list_books():
     """List every book JSON file found in the books directory."""
     books = []
-    for filepath in glob.glob(os.path.join(BOOKS_DIR, "*.json")):
+    for filepath in glob.glob(os.path.join(get_books_dir(), "*.json")):
         try:
             with open(filepath, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -57,7 +57,7 @@ def save_book():
         return jsonify({"error": "No name provided"}), 400
 
     filename = _sanitize_book_name(name) + ".json"
-    filepath = os.path.join(BOOKS_DIR, filename)
+    filepath = os.path.join(get_books_dir(), filename)
 
     try:
         with open(filepath, "w", encoding="utf-8") as fh:
@@ -77,7 +77,7 @@ def load_book():
     if not filename:
         return jsonify({"error": "No filename provided"}), 400
 
-    filepath = os.path.join(BOOKS_DIR, filename)
+    filepath = os.path.join(get_books_dir(), filename)
     if not os.path.isfile(filepath):
         return jsonify({"error": "Book not found"}), 404
 
@@ -115,7 +115,7 @@ def delete_book():
     if not filename:
         return jsonify({"error": "No filename provided"}), 400
 
-    filepath = os.path.join(BOOKS_DIR, filename)
+    filepath = os.path.join(get_books_dir(), filename)
     try:
         if os.path.isfile(filepath):
             os.remove(filepath)
@@ -140,7 +140,7 @@ def rename_book():
     if not new_name:
         return jsonify({"error": "No new name provided"}), 400
 
-    old_path = os.path.join(BOOKS_DIR, old_filename)
+    old_path = os.path.join(get_books_dir(), old_filename)
     if not os.path.isfile(old_path):
         return jsonify({"error": f"Book file not found: {old_filename}"}), 404
 
@@ -157,13 +157,13 @@ def rename_book():
         counter = 1
         candidate = new_filename
         while (
-            os.path.isfile(os.path.join(BOOKS_DIR, candidate))
+            os.path.isfile(os.path.join(get_books_dir(), candidate))
             and candidate != old_filename
         ):
             candidate = f"{_sanitize_book_name(new_name)}_{counter}.json"
             counter += 1
         new_filename = candidate
-        new_path = os.path.join(BOOKS_DIR, new_filename)
+        new_path = os.path.join(get_books_dir(), new_filename)
 
         # Write the updated JSON to the (possibly new) path
         with open(new_path, "w", encoding="utf-8") as fh:
@@ -218,7 +218,7 @@ def export_book(filename: str):
             <node_image_2>.jpg
             …
     """
-    filepath = os.path.join(BOOKS_DIR, filename)
+    filepath = os.path.join(get_books_dir(), filename)
     if not os.path.isfile(filepath):
         return jsonify({"error": "Book not found"}), 404
 
@@ -235,7 +235,7 @@ def export_book(filename: str):
 
         # 2. Referenced mindmap images (skip audio — by design)
         for img_filename in _find_book_images(book_data):
-            img_path = os.path.join(IMAGES_DIR, img_filename)
+            img_path = os.path.join(get_images_dir(), img_filename)
             if os.path.isfile(img_path):
                 zf.write(img_path, os.path.join("images", img_filename))
             else:
@@ -305,11 +305,11 @@ def import_book():
             safe = "".join(c for c in book_name if c.isalnum() or c in " -_").strip() or "book"
             candidate = safe + ".json"
             counter = 1
-            while os.path.isfile(os.path.join(BOOKS_DIR, candidate)):
+            while os.path.isfile(os.path.join(get_books_dir(), candidate)):
                 candidate = f"{safe}_{counter}.json"
                 counter += 1
 
-            dest_path = os.path.join(BOOKS_DIR, candidate)
+            dest_path = os.path.join(get_books_dir(), candidate)
             with open(dest_path, "w", encoding="utf-8") as fh:
                 json.dump(book_data, fh, ensure_ascii=False, indent=2)
             logger.info("Book imported: %s → %s", book_name, candidate)
@@ -320,7 +320,7 @@ def import_book():
                     img_filename = os.path.basename(name)
                     if not img_filename:
                         continue
-                    img_dest = os.path.join(IMAGES_DIR, img_filename)
+                    img_dest = os.path.join(get_images_dir(), img_filename)
                     with open(img_dest, "wb") as fh:
                         fh.write(zf.read(name))
                     logger.debug("Image extracted: %s", img_filename)

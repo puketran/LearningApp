@@ -5,7 +5,7 @@ import os
 
 from flask import Blueprint, jsonify, request, send_from_directory
 
-from ..config import IMAGES_DIR
+from ..config import get_images_dir
 from ..utils.file_utils import safe_id
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def upload_image():
     content_type = image_file.content_type or "image/png"
     ext = _MIME_TO_EXT.get(content_type, "png")
     filename = f"{safe_id(vocab_id)}_{safe_id(node_id)}.{ext}"
-    filepath = os.path.join(IMAGES_DIR, filename)
+    filepath = os.path.join(get_images_dir(), filename)
 
     try:
         image_file.save(filepath)
@@ -57,7 +57,7 @@ def delete_image():
     if not filename:
         return jsonify({"error": "No filename provided"}), 400
 
-    filepath = os.path.join(IMAGES_DIR, filename)
+    filepath = os.path.join(get_images_dir(), filename)
     if os.path.isfile(filepath):
         os.remove(filepath)
         logger.info("Image deleted: %s", filename)
@@ -68,4 +68,4 @@ def delete_image():
 @images_bp.route("/images/<path:filename>")
 def serve_image(filename):
     """Serve an image file from the images directory."""
-    return send_from_directory(IMAGES_DIR, filename)
+    return send_from_directory(get_images_dir(), filename)

@@ -1,8 +1,10 @@
 """
 Application configuration.
 All values are read from environment variables (via .env).
+Data folder can be overridden via app_config.json (edited from the Settings UI).
 """
 
+import json
 import logging
 import os
 import shutil
@@ -17,10 +19,29 @@ BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 FRONTEND_DIR: str = os.path.join(BASE_DIR, "frontend")
 
-# DATA_DIR: single parent folder for all user data.
-# Set DATA_DIR in .env to an absolute path or a path relative to the project root.
-# Defaults to <project_root>/data if not specified.
-_raw_data_dir: str = os.getenv("DATA_DIR", "data")
+# ── app_config.json — user-editable settings (written by Settings UI) ─────────
+APP_CONFIG_FILE: str = os.path.join(BASE_DIR, "app_config.json")
+
+
+def load_app_config() -> dict:
+    """Load app_config.json; return empty dict if missing or invalid."""
+    try:
+        with open(APP_CONFIG_FILE, "r", encoding="utf-8") as _f:
+            return json.load(_f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_app_config(data: dict) -> None:
+    """Persist settings to app_config.json."""
+    with open(APP_CONFIG_FILE, "w", encoding="utf-8") as _f:
+        json.dump(data, _f, indent=2)
+
+
+_app_cfg = load_app_config()
+
+# DATA_DIR priority: app_config.json > .env > default "data"
+_raw_data_dir: str = _app_cfg.get("data_dir") or os.getenv("DATA_DIR", "data")
 DATA_DIR: str = os.path.normpath(
     _raw_data_dir
     if os.path.isabs(_raw_data_dir)
@@ -35,6 +56,45 @@ IMAGES_DIR: str = os.path.join(DATA_DIR, "images")
 # Ensure all data directories exist on startup
 for _dir in [BOOKS_DIR, AUDIOS_DIR, RECORDINGS_DIR, IMAGES_DIR]:
     os.makedirs(_dir, exist_ok=True)
+
+
+# ── Dynamic getters — re-read app_config.json on every call ───────────────────
+# Use these in route handlers so the active folder updates immediately when the
+# user changes it via the Settings UI (no server restart needed).
+
+def _resolve_data_dir() -> str:
+    cfg = load_app_config()
+    raw = cfg.get("data_dir") or os.getenv("DATA_DIR", "data")
+    return os.path.normpath(raw if os.path.isabs(raw) else os.path.join(BASE_DIR, raw))
+
+
+def get_data_dir() -> str:
+    """Return the current DATA_DIR, reading app_config.json fresh each time."""
+    return _resolve_data_dir()
+
+
+def get_books_dir() -> str:
+    d = os.path.join(_resolve_data_dir(), "books")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def get_audios_dir() -> str:
+    d = os.path.join(_resolve_data_dir(), "audios")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def get_recordings_dir() -> str:
+    d = os.path.join(_resolve_data_dir(), "recordings")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def get_images_dir() -> str:
+    d = os.path.join(_resolve_data_dir(), "images")
+    os.makedirs(d, exist_ok=True)
+    return d
 
 # ── One-time migration: move root-level legacy folders into DATA_DIR ──────────
 # Runs only when the old folder still exists at the project root and the new
