@@ -41,11 +41,12 @@ def upload_image():
     filepath = os.path.join(get_images_dir(), filename)
 
     try:
+        logger.info("[UPLOAD] saving image to: %s", filepath)
         image_file.save(filepath)
-        logger.info("Image saved: %s", filename)
+        logger.info("[UPLOAD] image saved OK: %s", filepath)
         return jsonify({"success": True, "filename": filename})
     except Exception as exc:
-        logger.exception("upload_image error")
+        logger.exception("[UPLOAD] failed to save image: %s", filepath)
         return jsonify({"error": str(exc)}), 500
 
 
@@ -68,4 +69,8 @@ def delete_image():
 @images_bp.route("/images/<path:filename>")
 def serve_image(filename):
     """Serve an image file from the images directory."""
-    return send_from_directory(get_images_dir(), filename)
+    images_dir = get_images_dir()
+    full_path = os.path.join(images_dir, filename)
+    exists = os.path.isfile(full_path)
+    logger.info("[SERVE] image request: %s | exists=%s", full_path, exists)
+    return send_from_directory(images_dir, filename)

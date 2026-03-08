@@ -31,8 +31,10 @@ def list_books():
     field (legacy / pre-user books) are shown to everyone.
     """
     filter_uid = request.args.get("user_id", "").strip() or None
+    books_dir = get_books_dir()
+    logger.info("[LIST] scanning books dir: %s", books_dir)
     books = []
-    for filepath in glob.glob(os.path.join(get_books_dir(), "*.json")):
+    for filepath in glob.glob(os.path.join(books_dir, "*.json")):
         try:
             with open(filepath, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -48,6 +50,7 @@ def list_books():
             if filter_uid and book_uid != filter_uid:
                 continue
 
+            logger.info("[LIST]   + serving: %s", filepath)
             books.append(
                 {
                     "filename": os.path.basename(filepath),
@@ -93,9 +96,10 @@ def save_book():
     filepath = os.path.join(books_dir, filename)
 
     try:
+        logger.info("[SAVE] writing book to: %s", filepath)
         with open(filepath, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2)
-        logger.info("Book saved: %s", filename)
+        logger.info("[SAVE] book saved OK: %s", filepath)
         return jsonify({"success": True, "filename": filename})
     except Exception as exc:
         logger.exception("save_book error")
@@ -111,7 +115,9 @@ def load_book():
         return jsonify({"error": "No filename provided"}), 400
 
     filepath = os.path.join(get_books_dir(), filename)
+    logger.info("[LOAD] reading book: %s", filepath)
     if not os.path.isfile(filepath):
+        logger.warning("[LOAD] NOT FOUND: %s", filepath)
         return jsonify({"error": "Book not found"}), 404
 
     try:
@@ -119,6 +125,7 @@ def load_book():
             book_data = json.load(fh)
 
         display_name = book_data.get("name", filename.replace(".json", ""))
+        logger.info("[LOAD] serving book '%s' from: %s", display_name, filepath)
 
         if "data" in book_data:
             # Current format: { name, data: { toc, sentences, vocabs, ... } }
@@ -349,9 +356,10 @@ def import_book():
                 counter += 1
 
             dest_path = os.path.join(get_books_dir(), candidate)
+            logger.info("[IMPORT] writing book to: %s", dest_path)
             with open(dest_path, "w", encoding="utf-8") as fh:
                 json.dump(book_data, fh, ensure_ascii=False, indent=2)
-            logger.info("Book imported: %s → %s", book_name, candidate)
+            logger.info("[IMPORT] book saved OK: %s", dest_path)
 
             # ── Extract images ────────────────────────────────────────────
             for name in names:
@@ -360,9 +368,10 @@ def import_book():
                     if not img_filename:
                         continue
                     img_dest = os.path.join(get_images_dir(), img_filename)
+                    logger.info("[IMPORT] extracting image to: %s", img_dest)
                     with open(img_dest, "wb") as fh:
                         fh.write(zf.read(name))
-                    logger.debug("Image extracted: %s", img_filename)
+                    logger.info("[IMPORT] image extracted OK: %s", img_dest)
 
         return jsonify({"success": True, "name": book_name, "filename": candidate})
 
