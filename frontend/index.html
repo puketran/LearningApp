@@ -1,0 +1,681 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="theme-color" content="#6366f1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>English Reading & Learning</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/styles.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+
+  <!-- Mobile Menu Toggle -->
+  <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Toggle Menu">
+    <i class="fas fa-bars"></i>
+  </button>
+
+  <!-- Sync Status Indicator -->
+  <div id="sync-status" class="sync-status" style="display:none;">
+    <i class="fas fa-sync-alt fa-spin"></i>
+    <span>Syncing...</span>
+  </div>
+
+  <!-- Sidebar Backdrop for Mobile -->
+  <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
+  <!-- LEFT SIDEBAR: Table of Contents -->
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-back-row">
+      <button id="btn-sidebar-back-books" class="btn-sidebar-back" title="Back to book list">
+        <i class="fas fa-arrow-left"></i> <span id="sidebar-book-name-label"></span>
+      </button>
+    </div>
+    <div class="sidebar-header">
+      <h2><i class="fas fa-book-open"></i> Contents</h2>
+      <button id="btn-add-chapter" class="btn btn-sm btn-primary" title="Add Chapter">
+        <i class="fas fa-plus"></i> Chapter
+      </button>
+    </div>
+    <nav id="toc-tree" class="toc-tree"></nav>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main id="main-content" class="main-content">
+    <!-- Book List Screen (shown on startup) -->
+    <div id="book-list-screen" class="welcome-screen">
+      <i class="fas fa-book-reader welcome-icon"></i>
+      <h1>English Reading & Learning</h1>
+      <p>Select a book to continue or create a new one</p>
+      <div class="book-list-actions">
+        <button id="btn-new-book" class="btn btn-lg btn-primary"><i class="fas fa-plus"></i> New Book</button>
+        <button id="btn-import-book" class="btn btn-lg btn-outline"><i class="fas fa-file-import"></i> Import .zip</button>
+        <input type="file" id="input-import-zip" accept=".zip" style="display:none;">
+      </div>
+      <div id="book-list" class="book-list"></div>
+    </div>
+
+    <div id="welcome-screen" class="welcome-screen" style="display:none;">
+      <div class="current-book-bar">
+        <span id="current-book-name" class="current-book-name"></span>
+        <button id="btn-rename-current-book" class="btn btn-outline btn-icon" title="Rename book"><i class="fas fa-pen"></i></button>
+        <button id="btn-book-config" class="btn btn-outline" title="Book language settings"><i class="fas fa-cog"></i></button>
+        <button id="btn-save-book" class="btn btn-primary" title="Save book"><i class="fas fa-save"></i> Save</button>
+        <button id="btn-back-to-books" class="btn btn-outline" title="Back to books"><i class="fas fa-arrow-left"></i> Books</button>
+      </div>
+      <i class="fas fa-book-open welcome-icon" style="font-size:56px;"></i>
+      <h2>No section selected</h2>
+      <p class="hint">Click <strong>"+ Chapter"</strong> on the left to begin, or select a section.</p>
+    </div>
+
+    <div id="section-view" class="section-view" style="display:none;">
+      <div class="section-header">
+        <h1 id="section-title"></h1>
+        <div class="section-actions">
+          <button id="btn-save-book-inline" class="btn btn-outline" title="Save book"><i class="fas fa-save"></i></button>
+          <button id="btn-add-sentence" class="btn btn-primary" style="display:none;">
+            <i class="fas fa-plus"></i> Add Sentence
+          </button>
+          <button id="btn-review-flashcards" class="btn btn-accent">
+            <i class="fas fa-clone"></i> Review
+          </button>
+        </div>
+      </div>
+
+      <!-- Section Tabs -->
+      <div class="section-tabs">
+        <button class="section-tab active" data-tab="vocabs">
+          <i class="fas fa-language"></i> Vocabs
+          <span class="tab-count" id="tab-count-vocabs"></span>
+        </button>
+        <button class="section-tab" data-tab="sentences">
+          <i class="fas fa-align-left"></i> Sentences
+          <span class="tab-count" id="tab-count-sentences"></span>
+        </button>
+        <button id="btn-vocab-bin" class="vocab-bin-btn" title="Deleted vocabs bin">
+          <i class="fas fa-trash-restore"></i>
+          <span id="bin-count-badge" class="bin-count-badge" style="display:none;"></span>
+        </button>
+      </div>
+
+      <!-- Sentence Filter (only for sentences tab) -->
+      <div class="sentence-filter" id="sentence-filter-bar" style="display:none;">
+        <i class="fas fa-search filter-icon"></i>
+        <input type="text" id="input-sentence-filter" placeholder="Filter sentences..." />
+        <button id="btn-clear-filter" class="btn-clear-filter" title="Clear filter" style="display:none;"><i class="fas fa-times"></i></button>
+      </div>
+
+      <!-- Mobile hint for text selection (only for sentences tab) -->
+      <div class="mobile-hint" id="mobile-selection-hint" style="display:none;">
+        <i class="fas fa-info-circle"></i>
+        <span>Tip: Tap any word to add as vocabulary, or tap sentence for details</span>
+      </div>
+
+      <!-- Vocabs Tab Content -->
+      <div id="vocabs-tab-container" class="tab-container">
+        <div id="vocabs-container" class="vocabs-container"></div>
+      </div>
+
+      <!-- Sentences Tab Content -->
+      <div id="sentences-tab-container" class="tab-container" style="display:none;">
+        <div id="sentences-container" class="sentences-container">
+          <p class="empty-msg" id="empty-sentences">No sentences yet. Click "Add Sentence" to start.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vocab List Overlay -->
+    <div id="vocab-list-overlay" class="vocab-list-overlay" style="display:none;">
+      <div class="vocab-list-panel">
+        <div class="vocab-list-header">
+          <h2><i class="fas fa-language"></i> Vocabulary List</h2>
+          <button id="btn-close-vocab-list" class="btn-close"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="vocab-list-content" class="vocab-list-content"></div>
+      </div>
+    </div>
+
+    <!-- Vocab Bin Overlay -->
+    <div id="vocab-bin-overlay" class="vocab-bin-overlay" style="display:none;">
+      <div class="vocab-bin-panel">
+        <div class="vocab-bin-header">
+          <h2><i class="fas fa-trash-restore"></i> Deleted Vocabs Bin</h2>
+          <div class="vocab-bin-header-actions">
+            <button id="btn-bin-delete-all" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i> Delete All</button>
+            <button id="btn-close-vocab-bin" class="btn-close"><i class="fas fa-times"></i></button>
+          </div>
+        </div>
+        <div id="vocab-bin-content" class="vocab-bin-content"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- RIGHT DETAIL PANEL (sentence or vocab) -->
+  <aside id="detail-panel" class="detail-panel">
+    <!-- Sentence Detail -->
+    <div id="sentence-detail" class="panel-section" style="display:none;">
+      <div class="detail-panel-header">
+        <h3><i class="fas fa-align-left"></i> Sentence</h3>
+        <button id="btn-close-sentence-panel" class="btn-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="detail-panel-body">
+        <div class="panel-field">
+          <label>English</label>
+          <div class="field-content field-english" id="sp-english"></div>
+        </div>
+        <div class="panel-field">
+          <label>Vietnamese Translation</label>
+          <div class="field-content editable" id="sp-vietnamese"></div>
+          <button class="btn-edit-sp" data-field="vietnamese" title="Edit"><i class="fas fa-pen"></i></button>
+        </div>
+        <div class="panel-field">
+          <label>Notes</label>
+          <div class="field-content editable" id="sp-notes"></div>
+          <button class="btn-edit-sp" data-field="notes" title="Edit"><i class="fas fa-pen"></i></button>
+        </div>
+        <div class="panel-field">
+          <label>Voice Recording</label>
+          <div class="recording-controls">
+            <button id="btn-record-voice" class="btn btn-outline" title="Record your voice"><i class="fas fa-microphone"></i> Record</button>
+            <button id="btn-stop-recording" class="btn btn-danger" style="display:none;" title="Stop recording"><i class="fas fa-stop"></i> Stop</button>
+            <button id="btn-play-recording" class="btn btn-outline" style="display:none;" title="Play recording"><i class="fas fa-play"></i> Play</button>
+            <button id="btn-delete-recording" class="btn btn-outline" style="display:none;" title="Delete recording"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>
+        <div class="panel-field">
+          <label>AI Voice Over</label>
+          <div class="recording-controls">
+            <button id="btn-generate-sentence-audio" class="btn btn-outline" title="Generate AI voice"><i class="fas fa-microphone"></i> Generate</button>
+            <button id="btn-play-sentence-audio" class="btn btn-outline" style="display:none;" title="Play AI voice"><i class="fas fa-volume-up"></i> Play</button>
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button id="btn-ai-translate-sentence" class="btn btn-accent"><i class="fas fa-robot"></i> AI Translate</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Vocab Detail -->
+    <div id="vocab-detail" class="panel-section" style="display:none;">
+      <div class="detail-panel-header">
+        <h3 id="vocab-panel-word"><i class="fas fa-language"></i> <span id="vocab-panel-word-text"></span></h3>
+        <div class="vocab-header-actions">
+          <button id="btn-play-audio" class="btn-audio" title="Play pronunciation" style="display:none;"><i class="fas fa-volume-up"></i></button>
+          <button id="btn-generate-audio" class="btn-audio btn-audio-generate" title="Generate pronunciation audio"><i class="fas fa-microphone"></i></button>
+          <button id="btn-close-vocab-panel" class="btn-close"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div id="vocab-panel-body" class="detail-panel-body">
+        <div class="panel-field">
+          <label>Pronunciation</label>
+          <div class="field-content" id="vocab-pronunciation"></div>
+          <button class="btn-edit-field" data-field="pronunciation"><i class="fas fa-pen"></i></button>
+        </div>
+
+        <!-- Multiple Definitions -->
+        <div class="definitions-section">
+          <div class="definitions-header">
+            <label>Definitions</label>
+            <button id="btn-add-definition" class="btn btn-sm btn-outline" title="Add definition"><i class="fas fa-plus"></i></button>
+          </div>
+          <div id="vocab-definitions-list" class="definitions-list"></div>
+        </div>
+
+        <div class="panel-field">
+          <label>AI Brief</label>
+          <div class="field-content" id="vocab-ai-brief"></div>
+          <button class="btn-edit-field" data-field="aiBrief"><i class="fas fa-pen"></i></button>
+        </div>
+        <div class="panel-field">
+          <label>Notes</label>
+          <div class="field-content" id="vocab-notes"></div>
+          <button class="btn-edit-field" data-field="notes"><i class="fas fa-pen"></i></button>
+        </div>
+        <div class="panel-actions">
+          <button id="btn-search-ai" class="btn btn-accent"><i class="fas fa-robot"></i> Search AI</button>
+          <button id="btn-vocab-mindmap" class="btn btn-outline"><i class="fas fa-project-diagram"></i> Mindmap</button>
+          <button id="btn-delete-vocab" class="btn btn-danger"><i class="fas fa-trash"></i> Remove</button>
+        </div>
+        <!-- Mindmap links -->
+        <div class="panel-field vocab-panel-mindmap-links">
+          <div class="vpml-section">
+            <label><i class="fas fa-project-diagram"></i> Own Mindmap</label>
+            <div id="vocab-panel-own-mindmap" class="mm-all-mindmaps-list"></div>
+          </div>
+          <div class="vpml-section">
+            <label><i class="fas fa-link"></i> Referenced by</label>
+            <div id="vocab-panel-referencing-mindmaps" class="mm-all-mindmaps-list"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MODALS -->
+
+  <!-- Rename Book Modal -->
+  <div id="modal-rename-book" class="modal" style="display:none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3><i class="fas fa-pen"></i> Rename Book</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Book Name</label>
+          <input type="text" id="input-rename-book" placeholder="Enter new name..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-confirm-rename-book" class="btn btn-primary"><i class="fas fa-check"></i> Rename</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Book — Name Confirmation Modal -->
+  <div id="modal-import-book" class="modal" style="display:none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3><i class="fas fa-file-import"></i> Import Book</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Book Name</label>
+          <input type="text" id="input-import-book-name" placeholder="Enter a name for the imported book..." />
+        </div>
+        <p class="hint" style="margin-top:8px;">You can change the name before importing.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-confirm-import-book" class="btn btn-primary"><i class="fas fa-file-import"></i> Import</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Book Language Config Modal -->
+  <div id="modal-book-config" class="modal" style="display:none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3><i class="fas fa-cog"></i> Book Language Settings</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="book-config-section">
+          <div class="book-config-label"><i class="fas fa-globe"></i> Source language (text &amp; voice)</div>
+          <div class="form-group">
+            <label>Language name</label>
+            <input type="text" id="cfg-from-lang" placeholder="e.g. English, German, French..." />
+          </div>
+          <div class="form-group">
+            <label>Azure TTS voice name</label>
+            <select id="cfg-voice-preset">
+              <option value="en-US-AvaMultilingualNeural">English US â€“ Ava (Multilingual)</option>
+              <option value="en-US-AndrewNeural">English US â€“ Andrew</option>
+              <option value="en-US-JennyNeural">English US â€“ Jenny</option>
+              <option value="en-GB-SoniaNeural">English GB â€“ Sonia</option>
+              <option value="en-AU-NatashaNeural">English AU â€“ Natasha</option>
+              <option value="de-DE-KatjaNeural">German â€“ Katja</option>
+              <option value="de-DE-ConradNeural">German â€“ Conrad</option>
+              <option value="fr-FR-DeniseNeural">French â€“ Denise</option>
+              <option value="es-ES-ElviraNeural">Spanish â€“ Elvira</option>
+              <option value="ja-JP-NanamiNeural">Japanese â€“ Nanami</option>
+              <option value="ko-KR-SunHiNeural">Korean â€“ SunHi</option>
+              <option value="zh-CN-XiaoxiaoNeural">Chinese CN â€“ Xiaoxiao</option>
+              <option value="__custom__">Custom (enter manually below)</option>
+            </select>
+          </div>
+          <div class="form-group" id="cfg-voice-custom-row" style="display:none;">
+            <label>Custom voice name</label>
+            <input type="text" id="cfg-from-voice" placeholder="e.g. en-US-AvaMultilingualNeural" />
+          </div>
+        </div>
+        <div class="book-config-section">
+          <div class="book-config-label"><i class="fas fa-language"></i> Target language (translation)</div>
+          <div class="form-group">
+            <label>Language name</label>
+            <input type="text" id="cfg-to-lang" placeholder="e.g. Vietnamese, Chinese, French..." />
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-book-config" class="btn btn-primary"><i class="fas fa-check"></i> Save</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Book Modal -->
+  <div id="modal-new-book" class="modal" style="display:none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3><i class="fas fa-book"></i> Create New Book</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Book Name</label>
+          <input type="text" id="input-book-name" placeholder="Enter book name..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-create-book-confirm" class="btn btn-primary"><i class="fas fa-plus"></i> Create</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Sentence Modal -->
+  <div id="modal-sentence" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-sentence-title">Add Sentence</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="input-sentence" placeholder="Type or paste your English sentence here..." rows="4"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-sentence" class="btn btn-primary">Save</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Chapter/Section Modal -->
+  <div id="modal-toc" class="modal" style="display:none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3 id="modal-toc-title">Add Chapter</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="input-toc-name" placeholder="Enter name..." />
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-toc" class="btn btn-primary">Save</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Vocab Modal (word selection) -->
+  <div id="modal-vocab" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add Vocabulary</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Selected Word/Phrase</label>
+          <input type="text" id="input-vocab-word" readonly />
+        </div>
+        <div class="form-group">
+          <label>Translation (Vietnamese)</label>
+          <input type="text" id="input-vocab-translation" placeholder="Enter Vietnamese translation..." />
+        </div>
+        <div class="form-group">
+          <label>Explanation (English)</label>
+          <textarea id="input-vocab-explanation" placeholder="Enter English explanation..." rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-ai-explain" class="btn btn-accent"><i class="fas fa-robot"></i> AI Explain</button>
+        <button id="btn-save-vocab" class="btn btn-primary">Save Vocab</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Vocab Field Modal -->
+  <div id="modal-edit-field" class="modal" style="display:none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3 id="modal-edit-field-title">Edit Field</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <textarea id="input-edit-field" rows="4"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-field" class="btn btn-primary">Save</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add/Edit Definition Modal -->
+  <div id="modal-definition" class="modal" style="display:none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-definition-title">Add Definition</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Part of Speech <span class="hint-text">(noun, verb, adj, etc.)</span></label>
+          <input type="text" id="input-def-pos" placeholder="e.g. noun, verb, adjective..." />
+        </div>
+        <div class="form-group">
+          <label>Vietnamese Meaning</label>
+          <input type="text" id="input-def-vietnamese" placeholder="Vietnamese translation..." />
+        </div>
+        <div class="form-group">
+          <label>English Meaning</label>
+          <textarea id="input-def-english" placeholder="English definition..." rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Example</label>
+          <input type="text" id="input-def-example" placeholder="Example sentence..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-save-definition" class="btn btn-primary">Save</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Context Menu (for text selection in sentences) -->
+  <div id="text-context-menu" class="text-context-menu" style="display:none;">
+    <button id="ctx-add-vocab"><i class="fas fa-plus-circle"></i> Add as Vocab</button>
+  </div>
+
+  <!-- Flashcard Review Overlay -->
+  <div id="flashcard-overlay" class="flashcard-overlay" style="display:none;">
+    <div class="flashcard-container">
+      <div class="flashcard-header">
+        <h2><i class="fas fa-clone"></i> <span id="flashcard-mode-title">Flashcard Review</span></h2>
+        <button id="btn-close-flashcard" class="btn-close"><i class="fas fa-times"></i></button>
+      </div>
+      
+      <div class="flashcard-mode-selector" id="flashcard-mode-selector">
+        <h3>Select Review Mode</h3>
+        <div class="mode-buttons">
+          <button id="btn-mode-vocab" class="btn btn-lg btn-primary">
+            <i class="fas fa-language"></i>
+            <div>Vocabulary</div>
+            <small id="vocab-count-label">0 words</small>
+          </button>
+          <button id="btn-mode-sentence" class="btn btn-lg btn-accent">
+            <i class="fas fa-align-left"></i>
+            <div>Sentences</div>
+            <small id="sentence-count-label">0 sentences</small>
+          </button>
+        </div>
+      </div>
+      
+      <div class="flashcard-content" id="flashcard-content" style="display:none;">
+        <div class="flashcard-stats">
+          <span class="card-progress"><span id="current-card-num">1</span> / <span id="total-cards">10</span></span>
+          <button id="btn-change-mode" class="btn btn-sm btn-outline"><i class="fas fa-exchange-alt"></i> Change Mode</button>
+        </div>
+        
+        <div class="flashcard-wrapper">
+          <div class="flashcard" id="flashcard">
+            <div class="flashcard-front">
+              <div class="card-label">Question</div>
+              <div class="card-text" id="card-front-text"></div>
+              <button id="btn-play-flashcard-audio" class="btn-flashcard-audio" style="display:none;" title="Play pronunciation">
+                <i class="fas fa-volume-up"></i>
+              </button>
+            </div>
+            <div class="flashcard-back">
+              <div class="card-label">Answer</div>
+              <div class="card-text" id="card-back-text"></div>
+            </div>
+          </div>
+          <div class="flip-hint"><i class="fas fa-redo"></i> Click card to flip</div>
+        </div>
+        
+        <div class="flashcard-controls">
+          <button id="btn-prev-card" class="btn btn-lg btn-outline"><i class="fas fa-arrow-left"></i> Previous</button>
+          <button id="btn-flip-card" class="btn btn-lg btn-primary"><i class="fas fa-redo"></i> Flip Card</button>
+          <button id="btn-next-card" class="btn btn-lg btn-outline">Next <i class="fas fa-arrow-right"></i></button>
+        </div>
+        
+        <div class="flashcard-actions">
+          <button id="btn-shuffle-cards" class="btn btn-outline"><i class="fas fa-random"></i> Shuffle</button>
+          <button id="btn-restart-review" class="btn btn-outline"><i class="fas fa-redo-alt"></i> Restart</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mindmap Overlay -->
+  <div id="mindmap-overlay" class="mindmap-overlay" style="display:none;">
+    <div class="mindmap-container">
+      <div class="mindmap-header">
+        <button id="btn-mm-back" class="btn-mm-back" title="Go back to previous mindmap" style="display:none;"><i class="fas fa-arrow-left"></i></button>
+        <h2><i class="fas fa-project-diagram"></i> <span id="mindmap-title">Mindmap</span></h2>
+        <div class="mindmap-header-actions">
+          <div class="mm-layout-switcher">
+            <button class="mm-layout-btn active" data-layout="tree" title="Tree layout"><i class="fas fa-sitemap"></i></button>
+            <button class="mm-layout-btn" data-layout="radial" title="Radial layout"><i class="fas fa-bullseye"></i></button>
+            <button class="mm-layout-btn" data-layout="vertical" title="Vertical layout"><i class="fas fa-stream"></i></button>
+          </div>
+          <div class="mm-header-sep"></div>
+          <button id="btn-mindmap-add-child" class="btn btn-sm btn-primary" title="Add child node (Tab)"><i class="fas fa-plus"></i> Child</button>
+          <button id="btn-mindmap-add-sibling" class="btn btn-sm btn-outline" title="Add sibling node (Space)"><i class="fas fa-arrows-alt-h"></i> Sibling</button>
+          <button id="btn-mindmap-collapse" class="btn btn-sm btn-outline" title="Collapse/expand children (C)"><i class="fas fa-compress-alt"></i></button>
+          <button id="btn-mindmap-reverse" class="btn btn-sm btn-outline" title="Reverse children order"><i class="fas fa-exchange-alt"></i></button>
+          <button id="btn-mindmap-move-up" class="btn btn-sm btn-outline" title="Move node up"><i class="fas fa-arrow-up"></i></button>
+          <button id="btn-mindmap-move-down" class="btn btn-sm btn-outline" title="Move node down"><i class="fas fa-arrow-down"></i></button>
+          <button id="btn-mindmap-delete-node" class="btn btn-sm btn-danger" title="Delete selected node (Del)"><i class="fas fa-trash"></i></button>
+          <button id="btn-mindmap-close" class="btn-close"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div class="mindmap-hint">
+        <i class="fas fa-info-circle"></i>
+        <span>Drag canvas to pan &bull; Click node for details &bull; <kbd>Tab</kbd> child &bull; <kbd>Space</kbd> sibling &bull; <kbd>Del</kbd> delete &bull; <kbd>F2</kbd> rename &bull; <kbd>C</kbd> collapse</span>
+      </div>
+      <div class="mindmap-body">
+        <div id="mindmap-canvas" class="mindmap-canvas" tabindex="0">
+          <div id="mindmap-pan-layer" class="mindmap-pan-layer">
+            <svg id="mindmap-svg" class="mindmap-svg"></svg>
+            <div id="mindmap-nodes" class="mindmap-nodes"></div>
+          </div>
+        </div>
+        <!-- Side panel for node details -->
+        <div id="mm-side-panel" class="mm-side-panel" style="display:none;">
+          <div class="mm-side-header">
+            <h3 id="mm-side-title">Node Details</h3>
+            <button id="btn-mm-side-close" class="btn-close"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="mm-side-body">
+            <div class="mm-side-field">
+              <label>Name</label>
+              <input type="text" id="mm-side-name" placeholder="Node name..." />
+            </div>
+            <div class="mm-side-field">
+              <label>Translation / Description</label>
+              <textarea id="mm-side-desc" rows="3" placeholder="Vietnamese translation or description..."></textarea>
+            </div>
+            <!-- Image section -->
+            <div class="mm-side-field">
+              <label>Image</label>
+              <div id="mm-side-image-area" class="mm-side-image-area">
+                <div id="mm-side-image-placeholder" class="mm-side-image-placeholder">
+                  <button id="btn-mm-paste-image" class="btn btn-outline mm-paste-image-btn">
+                    <i class="fas fa-clipboard"></i> Paste Image from Clipboard
+                  </button>
+                  <small>Copy an image first, then click the button</small>
+                </div>
+                <div id="mm-side-image-preview" class="mm-side-image-preview" style="display:none;">
+                  <img id="mm-side-image-img" src="" alt="Node image" />
+                  <div class="mm-image-preview-actions">
+                    <button id="btn-mm-paste-image-replace" class="btn btn-sm btn-outline"><i class="fas fa-clipboard"></i> Replace</button>
+                    <button id="btn-mm-image-delete" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i> Remove</button>
+                  </div>
+                </div>
+              </div>
+              <div id="mm-image-resize-btns" class="mm-image-resize-btns" style="display:none;">
+                <span class="mm-resize-label">Display size:</span>
+                <button class="mm-resize-btn" data-size="small" title="Small">S</button>
+                <button class="mm-resize-btn" data-size="medium" title="Medium">M</button>
+                <button class="mm-resize-btn" data-size="large" title="Large">L</button>
+                <button class="mm-resize-btn" data-size="xl" title="Extra Large">XL</button>
+                <button id="btn-mm-image-hide" class="mm-resize-btn mm-hide-btn" title="Hide image on canvas"><i class="fas fa-eye-slash"></i></button>
+              </div>
+            </div>
+            <div class="mm-side-actions">
+              <button id="btn-mm-side-save" class="btn btn-sm btn-primary"><i class="fas fa-check"></i> Save</button>
+              <button id="btn-mm-ai-translate" class="btn btn-sm btn-accent"><i class="fas fa-robot"></i> AI Translate</button>
+            </div>
+            <!-- Vocab link section -->
+            <div class="mm-side-divider"></div>
+            <div class="mm-side-field">
+              <label>Vocab / Mindmap Link</label>
+              <div id="mm-side-vocab-status" class="mm-side-vocab-status"></div>
+              <div class="mm-side-vocab-actions">
+                <button id="btn-mm-create-vocab" class="btn btn-sm btn-outline">
+                  <i class="fas fa-plus"></i> Create Vocab from Node
+                </button>
+                <button id="btn-mm-open-linked-mindmap" class="btn btn-sm btn-outline" style="display:none;">
+                  <i class="fas fa-project-diagram"></i> Open Linked Mindmap
+                </button>
+                <button id="btn-mm-extract-to-vocab" class="btn btn-sm btn-accent" style="display:none;" title="Move this node's subtree into a new vocab's mindmap">
+                  <i class="fas fa-code-branch"></i> Extract Subtree to Vocab
+                </button>
+              </div>
+            </div>
+            <!-- All mindmaps list -->
+            <div class="mm-side-divider"></div>
+            <div class="mm-side-field">
+              <label>All Mindmaps <span id="mm-maps-count" class="mm-maps-count"></span></label>
+              <div id="mm-all-mindmaps-list" class="mm-all-mindmaps-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mindmap Hover Menu (floating) -->
+  <div id="mm-hover-menu" class="mm-hover-menu" style="display:none;">
+    <button class="mm-hover-btn" data-action="rename" title="Rename"><i class="fas fa-pen"></i></button>
+    <button class="mm-hover-btn" data-action="add-desc" title="Add description"><i class="fas fa-comment-dots"></i></button>
+    <button class="mm-hover-btn" data-action="ai-desc" title="AI translate"><i class="fas fa-robot"></i></button>
+    <button class="mm-hover-btn" data-action="extract" title="Extract subtree to new vocab"><i class="fas fa-code-branch"></i></button>
+    <button class="mm-hover-btn" data-action="collapse" title="Collapse/expand"><i class="fas fa-compress-alt"></i></button>
+    <button class="mm-hover-btn" data-action="reverse" title="Reverse children"><i class="fas fa-exchange-alt"></i></button>
+  </div>
+
+  <!-- TOC Context Menu -->
+  <div id="toc-context-menu" class="toc-context-menu" style="display:none;">
+    <button id="ctx-add-sub"><i class="fas fa-plus"></i> Add Sub-section</button>
+    <button id="ctx-rename"><i class="fas fa-pen"></i> Rename</button>
+    <button id="ctx-delete"><i class="fas fa-trash"></i> Delete</button>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
+
