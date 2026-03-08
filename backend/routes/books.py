@@ -24,7 +24,13 @@ def _sanitize_book_name(name: str) -> str:
 
 @books_bp.route("", methods=["GET"])
 def list_books():
-    """List every book JSON file found in the books directory."""
+    """List every book JSON file found in the books directory.
+
+    Optional query param ``user_id`` — when supplied only books whose stored
+    ``user_id`` field matches are returned.  Books that have no ``user_id``
+    field (legacy / pre-user books) are shown to everyone.
+    """
+    filter_uid = request.args.get("user_id", "").strip() or None
     books = []
     for filepath in glob.glob(os.path.join(get_books_dir(), "*.json")):
         try:
@@ -34,6 +40,14 @@ def list_books():
             # Pull language config from data.config (new format) or top-level config
             inner = data.get("data", data)
             cfg = inner.get("config", {}) if isinstance(inner, dict) else {}
+
+            # User filtering: when a user is logged in, only show their books.
+            # Books with no user_id were created before the user system —
+            # they are hidden unless no filter is active (admin/no-user mode).
+            book_uid = data.get("user_id")
+            if filter_uid and book_uid != filter_uid:
+                continue
+
             books.append(
                 {
                     "filename": os.path.basename(filepath),
@@ -56,8 +70,27 @@ def save_book():
     if not name:
         return jsonify({"error": "No name provided"}), 400
 
-    filename = _sanitize_book_name(name) + ".json"
-    filepath = os.path.join(get_books_dir(), filename)
+    # Preserve user_id when supplied so books stay linked to their owner
+    user_id = (data.get("user_id") or "").strip() or None
+    if user_id:
+        data["user_id"] = user_id
+    elif "user_id" not in data:
+        pass  # legacy book — keep as-is
+
+    # Determine filename -------------------------------------------------------
+    # Re-use the existing filename when the frontend tells us one (i.e. the book
+    # was already saved before).  This prevents a second file being created when
+    # re-saving or when a user's book has the same name as another user's book.
+    existing_filename = (data.get("filename") or "").strip()
+    books_dir = get_books_dir()
+    if existing_filename and os.path.isfile(os.path.join(books_dir, existing_filename)):
+        filename = existing_filename
+    else:
+        safe = _sanitize_book_name(name)
+        # Namespace by user so two users can have books with the same title
+        filename = f"{user_id[:8]}_{safe}.json" if user_id else f"{safe}.json"
+
+    filepath = os.path.join(books_dir, filename)
 
     try:
         with open(filepath, "w", encoding="utf-8") as fh:
@@ -290,6 +323,11 @@ def import_book():
             if override_name:
                 book_data["name"] = override_name
 
+            # Tag the book with the importing user's id (if provided)
+            import_uid = request.form.get("user_id", "").strip()
+            if import_uid:
+                book_data["user_id"] = import_uid
+
             # Ensure language config exists (backwards compat)
             inner = book_data.get("data", book_data)
             if isinstance(inner, dict) and "config" not in inner:
@@ -301,12 +339,13 @@ def import_book():
 
             book_name = book_data.get("name", "Imported Book").strip() or "Imported Book"
 
-            # Avoid overwriting an existing file — append a suffix if needed
+            # Build filename — namespace by user to prevent collisions between users
             safe = "".join(c for c in book_name if c.isalnum() or c in " -_").strip() or "book"
-            candidate = safe + ".json"
+            base = f"{import_uid[:8]}_{safe}" if import_uid else safe
+            candidate = base + ".json"
             counter = 1
             while os.path.isfile(os.path.join(get_books_dir(), candidate)):
-                candidate = f"{safe}_{counter}.json"
+                candidate = f"{base}_{counter}.json"
                 counter += 1
 
             dest_path = os.path.join(get_books_dir(), candidate)

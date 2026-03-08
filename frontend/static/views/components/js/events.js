@@ -471,6 +471,12 @@ function init() {
 }
 
 async function initializeApp() {
+  // Always require user selection on every page load
+  if (typeof getCurrentUserId === 'function' && !getCurrentUserId()) {
+    showUserSelectScreen();
+    return;
+  }
+
   // Try to load last book from server if available
   if (currentBookFile) {
     try {

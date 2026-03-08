@@ -1,7 +1,9 @@
 // ===== BOOK MANAGEMENT =====
 async function loadBookList() {
   try {
-    const resp = await fetch(`${API_BASE}/api/books`);
+    const uid = (typeof getCurrentUserId === 'function') ? (getCurrentUserId() || '') : '';
+    const query = uid ? `?user_id=${encodeURIComponent(uid)}` : '';
+    const resp = await fetch(`${API_BASE}/api/books${query}`);
     const data = await resp.json();
     return data.books || [];
   } catch (err) {
@@ -11,9 +13,11 @@ async function loadBookList() {
 }
 
 async function saveBookToFile(name, silent = false) {
+  const uid = (typeof getCurrentUserId === 'function') ? (getCurrentUserId() || undefined) : undefined;
   const payload = {
     name,
     filename: currentBookFile || undefined,
+    user_id: uid,
     data: appData          // full appData: toc, sentences, vocabs, mindmaps,
                            // mindmapLayouts, vocabBin, config
   };
@@ -202,6 +206,8 @@ async function confirmImportBook() {
   const formData = new FormData();
   formData.append('file', _pendingImportFile);
   if (overrideName) formData.append('name', overrideName);
+  const uid = (typeof getCurrentUserId === 'function') ? (getCurrentUserId() || '') : '';
+  if (uid) formData.append('user_id', uid);
   _pendingImportFile = null;
 
   try {
@@ -276,6 +282,14 @@ function showBookListScreen() {
   document.getElementById('section-view').style.display = 'none';
   document.getElementById('sidebar').style.display = 'none';
   document.getElementById('detail-panel').classList.remove('open');
+
+  // Show active user name in switch button
+  const nameLabel = document.getElementById('book-list-user-name');
+  if (nameLabel) {
+    const uname = (typeof getCurrentUserName === 'function') ? getCurrentUserName() : '';
+    nameLabel.textContent = uname ? uname : '';
+  }
+
   renderBookListScreen();
 }
 

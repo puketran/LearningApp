@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="/static/views/components/css/books.css">
   <link rel="stylesheet" href="/static/views/components/css/sections.css">
   <link rel="stylesheet" href="/static/views/components/css/mindmap.css">
+  <link rel="stylesheet" href="/static/views/components/css/users.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body>
@@ -57,8 +58,16 @@
 
   <!-- MAIN CONTENT -->
   <main id="main-content" class="main-content">
+    <!-- User Select Screen (shown before book list) -->
+    <div id="user-select-screen" class="welcome-screen">
+      <i class="fas fa-users welcome-icon"></i>
+      <h1>Who's reading?</h1>
+      <p>Select your profile to continue</p>
+      <div id="user-grid" class="user-grid"></div>
+    </div>
+
     <!-- Book List Screen (shown on startup) -->
-    <div id="book-list-screen" class="welcome-screen">
+    <div id="book-list-screen" class="welcome-screen" style="display:none;">
       <i class="fas fa-book-reader welcome-icon"></i>
       <h1>English Reading & Learning</h1>
       <p>Select a book to continue or create a new one</p>
@@ -71,9 +80,23 @@
       <div class="book-list-actions">
         <button id="btn-new-book" class="btn btn-lg btn-primary"><i class="fas fa-plus"></i> New Book</button>
         <button id="btn-import-book" class="btn btn-lg btn-outline"><i class="fas fa-file-import"></i> Import .zip</button>
+        <button id="btn-switch-user" class="btn btn-lg btn-outline" title="Switch user"><i class="fas fa-user-circle"></i> <span id="book-list-user-name"></span></button>
         <input type="file" id="input-import-zip" accept=".zip" style="display:none;">
       </div>
       <div id="book-list" class="book-list"></div>
+
+      <!-- Storage log console -->
+      <div class="storage-console">
+        <div class="storage-console-header" id="btn-toggle-console">
+          <span><i class="fas fa-terminal"></i> Storage Log</span>
+          <span id="storage-console-badge" class="console-badge"></span>
+          <i class="fas fa-chevron-down console-chevron" id="console-chevron"></i>
+        </div>
+        <div class="storage-console-body" id="storage-console-body" style="display:none;">
+          <div id="storage-console-lines">Loading…</div>
+          <button id="btn-refresh-console" class="btn btn-sm btn-outline console-refresh"><i class="fas fa-sync-alt"></i> Refresh</button>
+        </div>
+      </div>
     </div>
 
     <div id="welcome-screen" class="welcome-screen" style="display:none;">
@@ -310,6 +333,66 @@
       </div>
       <div class="modal-footer">
         <button id="btn-confirm-import-book" class="btn btn-primary"><i class="fas fa-file-import"></i> Import</button>
+        <button class="btn btn-outline modal-close">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- User PIN Modal -->
+  <div id="modal-user-pin" class="modal" style="display:none;">
+    <div class="modal-content modal-pin">
+      <button class="pin-modal-close modal-close" title="Cancel"><i class="fas fa-times"></i></button>
+      <div class="pin-modal-inner">
+        <div class="pin-avatar" id="pin-avatar"></div>
+        <div class="pin-user-name" id="pin-user-name"></div>
+        <div class="pin-subtitle">Enter your 4-digit PIN</div>
+        <div class="pin-dots">
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
+          <div class="pin-dot"></div>
+        </div>
+        <div class="pin-error" id="pin-error"></div>
+        <div class="pin-keypad">
+          <button class="pin-key" data-val="1">1</button>
+          <button class="pin-key" data-val="2">2</button>
+          <button class="pin-key" data-val="3">3</button>
+          <button class="pin-key" data-val="4">4</button>
+          <button class="pin-key" data-val="5">5</button>
+          <button class="pin-key" data-val="6">6</button>
+          <button class="pin-key" data-val="7">7</button>
+          <button class="pin-key" data-val="8">8</button>
+          <button class="pin-key" data-val="9">9</button>
+          <div></div>
+          <button class="pin-key" data-val="0">0</button>
+          <button class="pin-key key-del" data-val="del"><i class="fas fa-backspace"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create User Modal -->
+  <div id="modal-create-user" class="modal" style="display:none;">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3><i class="fas fa-user-plus"></i> Add User</h3>
+        <button class="btn-close modal-close"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="create-user-fields">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="input-new-user-name" placeholder="Your name…" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label>4-digit PIN</label>
+            <input type="text" id="input-new-user-pin" name="pin" inputmode="numeric" maxlength="4" placeholder="1234" autocomplete="off" />
+          </div>
+          <div class="pin-error" id="create-user-error"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-confirm-create-user" class="btn btn-primary"><i class="fas fa-user-plus"></i> Create</button>
         <button class="btn btn-outline modal-close">Cancel</button>
       </div>
     </div>
@@ -727,6 +810,7 @@
   <script src="/static/views/components/js/detail-panel.js"></script>
   <script src="/static/views/components/js/ai.js"></script>
   <script src="/static/views/components/js/books.js"></script>
+  <script src="/static/views/components/js/users.js"></script>
   <script src="/static/views/components/js/flashcard.js"></script>
   <script src="/static/views/components/js/events.js"></script>
   <script src="/static/views/components/js/settings.js"></script>

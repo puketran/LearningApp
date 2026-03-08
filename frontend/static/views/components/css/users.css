@@ -1,0 +1,312 @@
+/* ===== User Picker Screen ===================================================*/
+
+#user-select-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem 1rem;
+  gap: 2rem;
+}
+
+#user-select-screen h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-primary, #1e1b4b);
+  margin: 0;
+}
+
+#user-select-screen p {
+  color: var(--text-secondary, #6b7280);
+  margin: 0;
+}
+
+/* Grid of user cards */
+.user-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  justify-content: center;
+  max-width: 640px;
+}
+
+.user-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  padding: 1.1rem 1.4rem;
+  border-radius: 16px;
+  border: 2px solid transparent;
+  background: var(--surface, #f8fafc);
+  transition: border-color 180ms, box-shadow 180ms, transform 120ms;
+  min-width: 100px;
+  user-select: none;
+}
+
+.user-card:hover {
+  border-color: var(--primary, #6366f1);
+  box-shadow: 0 4px 18px rgba(99,102,241,0.18);
+  transform: translateY(-2px);
+}
+
+.user-card:active {
+  transform: translateY(0);
+}
+
+/* Avatar circle with initials */
+.user-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  color: #fff;
+  font-size: 1.5rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.user-avatar.avatar-add {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+  color: #6366f1;
+  font-size: 1.6rem;
+}
+
+.user-card-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-primary, #1e1b4b);
+  text-align: center;
+  word-break: break-word;
+  max-width: 100px;
+}
+
+/* "Add user" card subtle style */
+.user-card.user-card-add .user-card-name {
+  color: var(--text-secondary, #6b7280);
+}
+
+/* Delete button on card */
+.user-card-del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ef4444;
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity 150ms;
+  padding: 0;
+  line-height: 1;
+}
+
+.user-card:hover .user-card-del {
+  opacity: 1;
+}
+
+/* ===== PIN Modal ============================================================*/
+
+/* Big centred card — no header bar */
+.modal-pin {
+  max-width: 380px;
+  width: 92%;
+  border-radius: 24px;
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+}
+
+.pin-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 6px;
+  transition: background 120ms;
+  z-index: 1;
+}
+.pin-modal-close:hover { background: rgba(0,0,0,0.06); }
+
+.pin-modal-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2.2rem 2rem 2rem;
+}
+
+/* Avatar at top of modal */
+.pin-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pin-user-name {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary, #1e1b4b);
+  text-align: center;
+  margin-bottom: -0.25rem;
+}
+
+.pin-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-secondary, #6b7280);
+  text-align: center;
+}
+
+.pin-dots {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin: 0.25rem 0;
+}
+
+.pin-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2.5px solid var(--primary, #6366f1);
+  background: transparent;
+  transition: background 120ms, transform 120ms;
+}
+
+.pin-dot.filled {
+  background: var(--primary, #6366f1);
+  transform: scale(1.15);
+}
+
+.pin-dot.shake {
+  animation: pin-shake 0.35s ease;
+}
+
+@keyframes pin-shake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-6px); }
+  40%      { transform: translateX(6px); }
+  60%      { transform: translateX(-4px); }
+  80%      { transform: translateX(4px); }
+}
+
+.pin-error {
+  color: #ef4444;
+  font-size: 0.85rem;
+  text-align: center;
+  min-height: 1.2em;
+  font-weight: 500;
+}
+
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.7rem;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 0.25rem;
+}
+
+.pin-key {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1.5px solid var(--border, #e2e8f0);
+  background: var(--surface, #f8fafc);
+  font-size: 1.6rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-primary, #1e1b4b);
+  transition: background 100ms, transform 80ms, border-color 100ms;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pin-key:hover {
+  background: var(--primary, #6366f1);
+  color: #fff;
+  border-color: var(--primary, #6366f1);
+}
+
+.pin-key:active,
+.pin-key.pressed {
+  transform: scale(0.88);
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+
+.pin-key.key-del {
+  font-size: 1.3rem;
+  color: var(--text-secondary, #6b7280);
+  border-color: transparent;
+  background: none;
+}
+.pin-key.key-del:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: transparent;
+}
+
+#modal-create-user .modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+/* Create user form */
+.create-user-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.create-user-fields label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 0.2rem;
+}
+
+.create-user-fields input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  font-size: 1rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 150ms;
+}
+
+.create-user-fields input:focus {
+  border-color: var(--primary, #6366f1);
+}
+
+/* PIN input field styled like classic 4-digit */
+.create-user-fields input[name="pin"] {
+  letter-spacing: 0.5rem;
+  font-size: 1.4rem;
+  text-align: center;
+  width: 140px;
+  align-self: center;
+}

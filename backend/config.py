@@ -142,7 +142,11 @@ OPENAI_API_VERSION: str = os.getenv("API_VERSION", "2024-02-01")
 # ── Server ────────────────────────────────────────────────────────────────────
 PORT: int = int(os.getenv("PORT", 5000))
 DEBUG: bool = os.getenv("FLASK_DEBUG", "false").lower() == "true"
-
+# ── Basic Auth ────────────────────────────────────────────────────────────
+# Set APP_AUTH_USER and APP_AUTH_PASS in .env to require login on every page load.
+# Leave either blank to disable authentication (e.g. for local development).
+APP_AUTH_USER: str | None = os.getenv("APP_AUTH_USER") or None
+APP_AUTH_PASS: str | None = os.getenv("APP_AUTH_PASS") or None
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.DEBUG if DEBUG else logging.INFO,
