@@ -10,11 +10,11 @@ Or with a WSGI server::
     gunicorn run:app
 """
 
+import os
 from backend.app import create_app
-from backend.config import DEBUG, PORT
 
 app = create_app()
 
-if __name__ == "__main__":
-    print(f"Server running at http://localhost:{PORT}")
-    app.run(host="0.0.0.0", port=PORT, debug=DEBUG)
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
