@@ -5,3 +5,4 @@ venv/
 backend/services/__pycache__/
 backend/utils/__pycache__/
 .env
+app_config.json

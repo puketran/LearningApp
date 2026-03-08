@@ -63,9 +63,24 @@ for _dir in [BOOKS_DIR, AUDIOS_DIR, RECORDINGS_DIR, IMAGES_DIR]:
 # user changes it via the Settings UI (no server restart needed).
 
 def _resolve_data_dir() -> str:
+    import platform
     cfg = load_app_config()
-    raw = cfg.get("data_dir") or os.getenv("DATA_DIR", "data")
-    # Detect Windows absolute paths (C:\...) even when running on Linux
+    cfg_raw = cfg.get("data_dir", "").strip()
+
+    # Safety guard: ignore app_config.json if it holds a Windows path while
+    # running on Linux/Mac (e.g. the file was accidentally committed to git).
+    _is_windows_path = len(cfg_raw) >= 3 and cfg_raw[1] == ":"
+    if cfg_raw and _is_windows_path and platform.system() != "Windows":
+        logging.getLogger(__name__).warning(
+            "app_config.json contains a Windows path (%s) but we are on %s — "
+            "ignoring it and falling back to DATA_DIR env var.",
+            cfg_raw, platform.system()
+        )
+        cfg_raw = ""
+
+    raw = cfg_raw or os.getenv("DATA_DIR", "data")
+
+    # Detect absolute paths (handles both POSIX /foo and Windows C:\foo)
     def _is_absolute(p: str) -> bool:
         return os.path.isabs(p) or (len(p) >= 3 and p[1] == ":")
     return os.path.normpath(raw if _is_absolute(raw) else os.path.join(BASE_DIR, raw))
