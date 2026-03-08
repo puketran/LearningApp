@@ -45,6 +45,12 @@ def create_app() -> Flask:
     app.register_blueprint(images_bp)       # /api/images/*, /images/<file>
     app.register_blueprint(settings_bp)     # /api/settings
 
+    # ── Health check — required by Render and other platforms ────────────────
+    @app.route("/health")
+    def health():
+        from flask import jsonify
+        return jsonify({"status": "ok"})
+
     # ── SPA catch-all — serve index.html ────────────────────────────────────
     @app.route("/")
     def serve_index():
