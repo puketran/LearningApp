@@ -70,6 +70,40 @@ def get_status():
     })
 
 
+@settings_bp.get("/api/files")
+def list_files():
+    """Walk the entire data directory and return every file with its size.
+    Useful for verifying what is actually stored on the server (e.g. Render Disk).
+    """
+    data_dir = get_data_dir()
+    result = {"data_dir": data_dir, "exists": os.path.isdir(data_dir), "folders": {}}
+
+    if not result["exists"]:
+        return jsonify(result)
+
+    for folder in ("books", "images", "audios", "recordings"):
+        folder_path = os.path.join(data_dir, folder)
+        files = []
+        if os.path.isdir(folder_path):
+            for fname in sorted(os.listdir(folder_path)):
+                fpath = os.path.join(folder_path, fname)
+                if os.path.isfile(fpath):
+                    files.append({
+                        "name": fname,
+                        "size_kb": round(os.path.getsize(fpath) / 1024, 1),
+                    })
+        result["folders"][folder] = {"path": folder_path, "files": files}
+
+    # Also list users.json at root of data dir
+    users_path = os.path.join(data_dir, "users.json")
+    if os.path.isfile(users_path):
+        result["users_json"] = {"exists": True, "size_kb": round(os.path.getsize(users_path) / 1024, 1)}
+    else:
+        result["users_json"] = {"exists": False}
+
+    return jsonify(result)
+
+
 @settings_bp.post("/api/settings")
 def update_settings():
     """Save new data_dir to app_config.json. Takes effect after server restart."""

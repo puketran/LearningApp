@@ -95,6 +95,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const refreshBtn = document.getElementById('btn-refresh-console');
   if (refreshBtn) refreshBtn.addEventListener('click', loadStorageConsole);
+
+  const browseBtn = document.getElementById('btn-browse-files');
+  if (browseBtn) browseBtn.addEventListener('click', loadFilesBrowser);
 });
 
 // ===== STORAGE LOG CONSOLE =====
@@ -115,6 +118,67 @@ function _line(icon, label, value, cls) {
   d.className = 'console-line' + (cls ? ' ' + cls : '');
   d.innerHTML = `<span class="console-icon">${icon}</span><span class="console-label">${label}</span><span class="console-value">${value}</span>`;
   return d;
+}
+
+async function loadFilesBrowser() {
+  const container = document.getElementById('storage-console-lines');
+  if (!container) return;
+  container.innerHTML = '<span style="opacity:.5">Browsing files on server…</span>';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/files`);
+    const d = await res.json();
+    container.innerHTML = '';
+
+    // Header row — data_dir path
+    const header = document.createElement('div');
+    header.className = 'console-line';
+    header.innerHTML = `<span class="console-icon">📂</span><span class="console-label" style="font-weight:700">Data folder</span><span class="console-value ${d.exists ? 'console-ok' : 'console-error'}">${d.data_dir}</span>`;
+    container.appendChild(header);
+
+    if (!d.exists) {
+      const err = document.createElement('div');
+      err.className = 'console-line console-error';
+      err.textContent = '❌ Folder does not exist on server';
+      container.appendChild(err);
+      return;
+    }
+
+    // users.json row
+    const uline = document.createElement('div');
+    uline.className = 'console-line ' + (d.users_json?.exists ? 'console-ok' : 'console-warn');
+    uline.innerHTML = `<span class="console-icon">👤</span><span class="console-label">users.json</span><span class="console-value">${d.users_json?.exists ? d.users_json.size_kb + ' KB' : 'not found'}</span>`;
+    container.appendChild(uline);
+
+    const folderIcons = { books: '📚', images: '🖼️', audios: '🔊', recordings: '🎤' };
+    for (const [fname, info] of Object.entries(d.folders || {})) {
+      // Folder header row
+      const frow = document.createElement('div');
+      frow.className = 'console-line';
+      frow.style.marginTop = '6px';
+      frow.innerHTML = `<span class="console-icon">${folderIcons[fname] || '📁'}</span><span class="console-label" style="font-weight:600">${fname}/ (${info.files.length} files)</span><span class="console-value" style="font-size:.78rem;opacity:.6">${info.path}</span>`;
+      container.appendChild(frow);
+
+      if (info.files.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'console-line';
+        empty.style.paddingLeft = '2rem';
+        empty.innerHTML = '<span style="opacity:.4;font-size:.82rem;">(empty)</span>';
+        container.appendChild(empty);
+      } else {
+        info.files.forEach(f => {
+          const fline = document.createElement('div');
+          fline.className = 'console-line';
+          fline.style.paddingLeft = '2rem';
+          fline.innerHTML = `<span class="console-icon" style="font-size:.7rem">└</span><span class="console-label" style="font-size:.8rem;font-family:monospace">${f.name}</span><span class="console-value" style="font-size:.8rem">${f.size_kb} KB</span>`;
+          container.appendChild(fline);
+        });
+      }
+    }
+  } catch (err) {
+    const container = document.getElementById('storage-console-lines');
+    if (container) container.innerHTML = `<span class="console-error">❌ Error: ${err.message}</span>`;
+  }
 }
 
 async function loadStorageConsole() {
