@@ -118,6 +118,9 @@
         <h1 id="section-title"></h1>
         <div class="section-actions">
           <button id="btn-save-book-inline" class="btn btn-outline" title="Save book"><i class="fas fa-save"></i></button>
+          <button id="btn-add-vocab" class="btn btn-primary" style="display:none;">
+            <i class="fas fa-plus"></i> Add Vocab
+          </button>
           <button id="btn-add-sentence" class="btn btn-primary" style="display:none;">
             <i class="fas fa-plus"></i> Add Sentence
           </button>
@@ -540,8 +543,8 @@
       </div>
       <div class="modal-body">
         <div class="form-group">
-          <label>Selected Word/Phrase</label>
-          <input type="text" id="input-vocab-word" readonly />
+          <label>Word/Phrase</label>
+          <input type="text" id="input-vocab-word" />
         </div>
         <div class="form-group">
           <label>Translation (Vietnamese)</label>

@@ -25,6 +25,7 @@ function switchSectionTab(tab) {
   document.getElementById('sentences-tab-container').style.display = isVocabs ? 'none' : 'block';
   document.getElementById('sentence-filter-bar').style.display = isVocabs ? 'none' : 'flex';
   document.getElementById('btn-add-sentence').style.display = isVocabs ? 'none' : '';
+  document.getElementById('btn-add-vocab').style.display = isVocabs ? '' : 'none';
 
   // Mobile hint: only show for sentences tab if not dismissed
   const mobileHint = document.getElementById('mobile-selection-hint');

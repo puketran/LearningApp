@@ -147,6 +147,16 @@ function closeVocabPanel() {
   closeDetailPanel();
 }
 
+function addVocabDirect() {
+  selectedSentenceIdForVocab = null;
+  const wordInput = document.getElementById('input-vocab-word');
+  wordInput.value = '';
+  document.getElementById('input-vocab-translation').value = '';
+  document.getElementById('input-vocab-explanation').value = '';
+  showModal('modal-vocab');
+  setTimeout(() => wordInput.focus(), 100);
+}
+
 // ===== BOOK LANGUAGE CONFIG =====
 function getBookConfig() {
   const defaults = { fromLang: 'English', fromVoice: 'en-US-AvaMultilingualNeural', toLang: 'Vietnamese' };

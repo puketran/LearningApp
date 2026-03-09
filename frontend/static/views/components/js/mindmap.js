@@ -349,9 +349,10 @@ function layoutTree(root) {
 
   function assign(node, lvl, x, yMin, yMax) {
     const h = lvl === 0 ? getRootTotalHeight(!!node.desc, node) : getNodeTotalHeight(!!node.desc, node);
+    const lh = lvl === 0 ? getRootTotalHeight(false, node) : getNodeTotalHeight(false, node);
     const w = estimateNodeWidth(node.text, lvl, node);
     const y = (yMin + yMax) / 2 - h / 2;
-    positions[node.id] = { x, y, w, h };
+    positions[node.id] = { x, y, w, h, lh };
     const kids = dispChildren(node);
     if (!kids.length || node.collapsed) return;
     const cX = x + w + GAP_H;
@@ -389,8 +390,9 @@ function layoutVertical(root) {
   function assign(node, lvl, y, xMin, xMax) {
     const w = estimateNodeWidth(node.text, lvl, node);
     const h = lvl === 0 ? getRootTotalHeight(!!node.desc, node) : getNodeTotalHeight(!!node.desc, node);
+    const lh = lvl === 0 ? getRootTotalHeight(false, node) : getNodeTotalHeight(false, node);
     const x = (xMin + xMax) / 2 - w / 2;
-    positions[node.id] = { x, y, w, h };
+    positions[node.id] = { x, y, w, h, lh };
     const kids = dispChildren(node);
     if (!kids.length || node.collapsed) return;
     const cY = y + h + GAP_V;
@@ -428,7 +430,8 @@ function layoutRadial(root) {
 
   const rootW = estimateNodeWidth(root.text, 0, root);
   const rootH = getRootTotalHeight(!!root.desc, root);
-  positions[root.id] = { x: cx - rootW / 2, y: cy - rootH / 2, w: rootW, h: rootH };
+  const rootLH = getRootTotalHeight(false, root);
+  positions[root.id] = { x: cx - rootW / 2, y: cy - rootH / 2, w: rootW, h: rootH, lh: rootLH };
 
   function assignRadial(children, lvl, startAngle, endAngle, radius) {
     if (!children || children.length === 0) return;
@@ -440,9 +443,10 @@ function layoutRadial(root) {
       const midAngle = angle + sweep / 2;
       const w = estimateNodeWidth(child.text, lvl, child);
       const h = getNodeTotalHeight(!!child.desc, child);
+      const lh = getNodeTotalHeight(false, child);
       const px = cx + radius * Math.cos(midAngle) - w / 2;
       const py = cy + radius * Math.sin(midAngle) - h / 2;
-      positions[child.id] = { x: px, y: py, w, h };
+      positions[child.id] = { x: px, y: py, w, h, lh };
       const childKids = dispChildren(child);
       if (childKids.length > 0 && !child.collapsed) {
         assignRadial(childKids, lvl + 1, angle, angle + sweep, radius + 160);
@@ -543,20 +547,25 @@ function drawConnections(node, positions, svg, readonly) {
     const cp = positions[child.id];
     if (!cp) return;
 
+    // lh = label-only height (excludes desc); used for center-y so lines always
+    // connect to the visual mid-point of the colored label box, not the total
+    // allocated band (which may include a description row below).
+    const pLH  = p.lh  ?? p.h;
+    const cpLH = cp.lh ?? cp.h;
     let x1, y1, x2, y2, d;
     if (mindmapLayout === 'vertical') {
-      x1 = p.x + p.w / 2; y1 = p.y + p.h;
-      x2 = cp.x + cp.w / 2; y2 = cp.y;
+      x1 = p.x + p.w / 2;   y1 = p.y + pLH;         // bottom of label box
+      x2 = cp.x + cp.w / 2; y2 = cp.y;               // top of label box
       const midY = (y1 + y2) / 2;
       d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
     } else if (mindmapLayout === 'radial') {
-      x1 = p.x + p.w / 2; y1 = p.y + p.h / 2;
-      x2 = cp.x + cp.w / 2; y2 = cp.y + cp.h / 2;
+      x1 = p.x + p.w / 2;   y1 = p.y + pLH / 2;     // center of label box
+      x2 = cp.x + cp.w / 2; y2 = cp.y + cpLH / 2;   // center of label box
       const midX = (x1 + x2) / 2, midY = (y1 + y2) / 2;
       d = `M ${x1} ${y1} Q ${midX} ${y1}, ${x2} ${y2}`;
     } else {
-      x1 = p.x + p.w; y1 = p.y + p.h / 2;
-      x2 = cp.x; y2 = cp.y + cp.h / 2;
+      x1 = p.x + p.w; y1 = p.y + pLH / 2;            // center of label box
+      x2 = cp.x;      y2 = cp.y + cpLH / 2;           // center of label box
       const midX = (x1 + x2) / 2;
       d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
     }
@@ -610,8 +619,7 @@ function renderNodes(node, positions, container, level, readonly) {
   if (readonly) el.classList.add('mm-node-readonly');
   if (mindmapSelectedId === node.id) el.classList.add('selected');
   el.style.left = p.x + 'px';
-  el.style.top = (p.y + p.h / 2) + 'px';
-  el.style.transform = 'translateY(-50%)';
+  el.style.top = p.y + 'px';
   el.dataset.nodeId = node.id;
 
   // Label area

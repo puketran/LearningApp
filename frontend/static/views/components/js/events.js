@@ -16,6 +16,9 @@ function initEventListeners() {
   // Add sentence
   document.getElementById('btn-add-sentence').addEventListener('click', addSentence);
 
+  // Add vocab directly
+  document.getElementById('btn-add-vocab').addEventListener('click', addVocabDirect);
+
   // Section tab switching
   document.querySelectorAll('.section-tab').forEach(btn => {
     btn.addEventListener('click', () => switchSectionTab(btn.dataset.tab));
