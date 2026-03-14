@@ -23,6 +23,12 @@ let mmRedoStack = [];      // redo history
 const MM_UNDO_MAX = 50;    // maximum undo depth
 let _lastMmPositions = null; // last computed layout positions (for DOM connection fix)
 
+// @mention autocomplete state
+let mmMentionActive = false;
+let mmMentionItems  = [];   // [{vocabId, sectionId, word}]
+let mmMentionIdx    = 0;
+let _mmMentionEl    = null; // singleton dropdown DOM element
+
 // ── Image blob cache ─────────────────────────────────────────────────────────
 // Each image file is fetched once per page session and stored as an ObjectURL.
 // Re-renders skip the network entirely and reuse the cached URL.
@@ -131,12 +137,14 @@ function openMindmap(pushHistory) {
     mindmapEditingId = null;
     resetMindmapPan();
     renderMindmap();
+    renderParentMapsBar();
     closeMindmapSidePanel();
   } else {
     overlay.style.display = 'flex';
     mindmapData = null;
     mindmapSelectedId = null;
     mindmapEditingId = null;
+    renderParentMapsBar();
     closeMindmapSidePanel();
     showMindmapCreatePrompt(vocab.word);
   }
@@ -169,6 +177,9 @@ function showMindmapCreatePrompt(word) {
 function closeMindmap() {
   document.getElementById('mindmap-overlay').style.display = 'none';
   document.getElementById('mm-hover-menu').style.display = 'none';
+  mmHideMentionDropdown();
+  const bar = document.getElementById('mm-parent-maps-bar');
+  if (bar) bar.style.display = 'none';
   mindmapData = null;
   mindmapVocabId = null;
   mindmapSelectedId = null;
@@ -380,6 +391,18 @@ function dispChildren(node) {
   return node.children || [];
 }
 
+// Re-key all node IDs in a (deep-cloned) subtree so that multiple references
+// to the same external mindmap don't collide in the positions map.
+// The prefix is the ID of the vocabLink holder, making IDs unique per slot.
+function _reKeyNodes(nodes, prefix, idMap) {
+  nodes.forEach(n => {
+    const newId = prefix + '__' + n.id;
+    idMap[n.id] = newId;
+    n.id = newId;
+    if (n.children && n.children.length) _reKeyNodes(n.children, prefix, idMap);
+  });
+}
+
 // Call before every layout/render pass. Injects live children from linked mindmaps (not saved).
 function resolveLinkedChildren(node, visited) {
   if (!visited) visited = new Set();
@@ -391,6 +414,9 @@ function resolveLinkedChildren(node, visited) {
     const linkedMM = getMindmaps()[node.vocabLink.vocabId];
     if (linkedMM) {
       const kids = JSON.parse(JSON.stringify(linkedMM.children || []));
+      // Re-key IDs so that two nodes linking to the same external mindmap
+      // produce unique IDs and never overwrite each other in the positions map.
+      _reKeyNodes(kids, node.id, {});
       markNodesReadonly(kids, node.vocabLink);
       node._linkedChildren = kids;
       // Also resolve nested links within live children
@@ -594,6 +620,7 @@ function applyPanTransform() {
 // ===== RENDER =====
 function renderMindmap() {
   if (!mindmapData) return;
+  mmHideMentionDropdown(); // always clean up autocomplete on re-render
   resolveLinkedChildren(mindmapData);   // inject live linked children before layout
   const positions = computeLayout(mindmapData);
   _lastMmPositions = positions;          // cache for post-render connection redraw
@@ -759,10 +786,23 @@ function renderNodes(node, positions, container, level, readonly) {
     let blurHandled = false;
     input.addEventListener('blur', () => {
       if (blurHandled) return;
-      blurHandled = true;
-      finishNodeEdit(node.id, input.value);
+      // Delay so mousedown on a mention row fires before blur
+      setTimeout(() => {
+        if (blurHandled) return;
+        mmHideMentionDropdown();
+        blurHandled = true;
+        finishNodeEdit(node.id, input.value);
+      }, 120);
     });
     input.addEventListener('keydown', (e) => {
+      // When dropdown active, intercept navigation/confirm keys
+      if (mmMentionActive) {
+        if (e.key === 'ArrowDown')  { e.preventDefault(); e.stopPropagation(); mmMentionMove(1);  return; }
+        if (e.key === 'ArrowUp')    { e.preventDefault(); e.stopPropagation(); mmMentionMove(-1); return; }
+        if (e.key === 'Enter')      { e.preventDefault(); e.stopPropagation(); blurHandled = true; mmMentionSelect(node.id, input); return; }
+        if (e.key === 'Escape')     { e.preventDefault(); e.stopPropagation(); mmHideMentionDropdown(); return; }
+        if (e.key === 'Tab')        { mmHideMentionDropdown(); /* fall through */ }
+      }
       if (e.key === 'Enter') { e.preventDefault(); blurHandled = true; finishNodeEdit(node.id, input.value); }
       else if (e.key === 'Escape') { e.preventDefault(); blurHandled = true; mindmapEditingId = null; renderMindmap(); }
       else if (e.key === 'Tab') {
@@ -773,7 +813,17 @@ function renderNodes(node, positions, container, level, readonly) {
       }
       e.stopPropagation();
     });
-    input.addEventListener('input', () => { input.style.width = Math.max(80, input.value.length * 9 + 20) + 'px'; });
+    input.addEventListener('input', () => {
+      input.style.width = Math.max(80, input.value.length * 9 + 20) + 'px';
+      // @mention detection: look for last '@' in the value
+      const val = input.value;
+      const atIdx = val.lastIndexOf('@');
+      if (atIdx !== -1) {
+        mmShowMentionDropdown(input, val.slice(atIdx + 1), node.id);
+      } else {
+        mmHideMentionDropdown();
+      }
+    });
     input.addEventListener('keypress', (e) => e.stopPropagation());
   } else {
     // ---- DISPLAY MODE ----
@@ -1305,6 +1355,32 @@ function findMindmapsReferencingVocab(targetVocabId) {
   return result;
 }
 
+/** Render the "Used by" parent-mindmaps bar above the canvas. */
+function renderParentMapsBar() {
+  const bar = document.getElementById('mm-parent-maps-bar');
+  const list = document.getElementById('mm-parent-maps-list');
+  if (!bar || !list) return;
+
+  const parents = mindmapVocabId ? findMindmapsReferencingVocab(mindmapVocabId) : [];
+
+  if (!parents.length) {
+    bar.style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = '';
+  parents.forEach(({ vocabId, sectionId, word }) => {
+    const pill = document.createElement('button');
+    pill.className = 'mm-parent-pill';
+    pill.title = `Open mindmap: ${word}`;
+    pill.innerHTML = `<i class="fas fa-project-diagram"></i> ${escapeHtml(word)}`;
+    pill.addEventListener('click', () => openMindmapByVocabId(vocabId, sectionId));
+    list.appendChild(pill);
+  });
+
+  bar.style.display = 'flex';
+}
+
 // Render all mindmaps list into the vocab panel (sentence/word side panel)
 function renderVocabPanelMindmapsList() {
   if (!currentVocabId) return;
@@ -1344,6 +1420,104 @@ function renderVocabPanelMindmapsList() {
       });
     }
   }
+}
+
+// ===== @MENTION AUTOCOMPLETE =====
+
+function _mmGetMentionEl() {
+  if (!_mmMentionEl) {
+    _mmMentionEl = document.createElement('div');
+    _mmMentionEl.id = 'mm-mention-dropdown';
+    _mmMentionEl.className = 'mm-mention-dropdown';
+    _mmMentionEl.style.display = 'none';
+    document.body.appendChild(_mmMentionEl);
+  }
+  return _mmMentionEl;
+}
+
+function mmHideMentionDropdown() {
+  mmMentionActive = false;
+  mmMentionItems  = [];
+  mmMentionIdx    = 0;
+  const el = _mmMentionEl;
+  if (el) el.style.display = 'none';
+}
+
+function mmMentionSetIdx(idx) {
+  mmMentionIdx = idx;
+  const el = _mmMentionEl;
+  if (!el) return;
+  el.querySelectorAll('.mm-mention-item').forEach((row, i) => {
+    row.classList.toggle('active', i === idx);
+    if (i === idx) row.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+function mmMentionMove(dir) {
+  const n = mmMentionItems.length;
+  if (!n) return;
+  mmMentionSetIdx((mmMentionIdx + dir + n) % n);
+}
+
+function mmShowMentionDropdown(inputEl, query, nodeId) {
+  const q = query.toLowerCase();
+  const all = getAllMindmapsData();
+  mmMentionItems = all
+    .filter(m => m.vocabId !== mindmapVocabId && m.word.toLowerCase().includes(q))
+    .slice(0, 10);
+
+  if (!mmMentionItems.length) { mmHideMentionDropdown(); return; }
+
+  mmMentionIdx    = 0;
+  mmMentionActive = true;
+
+  const dropdown = _mmGetMentionEl();
+  dropdown.innerHTML = '';
+  mmMentionItems.forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'mm-mention-item' + (idx === 0 ? ' active' : '');
+    row.dataset.idx = String(idx);
+    row.innerHTML = `<i class="fas fa-project-diagram"></i> <strong>${escapeHtml(item.word)}</strong>`;
+    row.addEventListener('mousemove', () => mmMentionSetIdx(idx));
+    row.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // prevent blur
+      mmMentionIdx = idx;
+      mmMentionSelect(nodeId, inputEl);
+    });
+    dropdown.appendChild(row);
+  });
+  const hint = document.createElement('div');
+  hint.className = 'mm-mention-hint';
+  hint.textContent = '↑↓ navigate  ·  Enter select  ·  Esc cancel';
+  dropdown.appendChild(hint);
+
+  const rect = inputEl.getBoundingClientRect();
+  dropdown.style.left     = rect.left + 'px';
+  dropdown.style.top      = (rect.bottom + 4) + 'px';
+  dropdown.style.minWidth = Math.max(180, rect.width) + 'px';
+  dropdown.style.display  = 'block';
+}
+
+function mmMentionSelect(nodeId, inputEl) {
+  const item = mmMentionItems[mmMentionIdx];
+  if (!item) { mmHideMentionDropdown(); return; }
+  mmHideMentionDropdown();
+
+  // Replace the '@…' portion with the chosen word
+  const val    = inputEl.value;
+  const atIdx  = val.lastIndexOf('@');
+  const newText = atIdx !== -1 ? val.slice(0, atIdx) + item.word : item.word;
+
+  const node = findNode(mindmapData, nodeId);
+  if (!node) return;
+
+  mmPushUndo('link to mindmap via @mention');
+  node.text     = newText.trim();
+  node.vocabLink = { vocabId: item.vocabId, sectionId: item.sectionId };
+  mindmapEditingId = null;
+  saveMindmap();
+  renderMindmap();
+  openMindmapSidePanel(nodeId);
 }
 
 // ===== NODE EDITING =====
@@ -1454,7 +1628,7 @@ function toggleCollapseNode(nodeId) {
   const id = nodeId || mindmapSelectedId;
   if (!id) return;
   const node = findNode(mindmapData, id);
-  if (!node || !node.children || node.children.length === 0) return;
+  if (!node || !dispChildren(node).length) return;
   mmPushUndo(node.collapsed ? 'expand node' : 'collapse node');
   node.collapsed = !node.collapsed;
   saveMindmap();
