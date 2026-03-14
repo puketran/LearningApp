@@ -18,6 +18,11 @@ let mmIsDragging = false;
 let mmDragGhost = null;
 let mmDragStartPos = { x: 0, y: 0 };
 
+let mmUndoStack = [];      // undo history: [ {data, selectedId, description} ]
+let mmRedoStack = [];      // redo history
+const MM_UNDO_MAX = 50;    // maximum undo depth
+let _lastMmPositions = null; // last computed layout positions (for DOM connection fix)
+
 // ── Image blob cache ─────────────────────────────────────────────────────────
 // Each image file is fetched once per page session and stored as an ObjectURL.
 // Re-renders skip the network entirely and reuse the cached URL.
@@ -119,6 +124,8 @@ function openMindmap(pushHistory) {
   if (mindmaps[currentVocabId]) {
     mindmapData = JSON.parse(JSON.stringify(mindmaps[currentVocabId]));
     rebuildParentRefs(mindmapData, null);
+    // Clear undo/redo history whenever a new mindmap is loaded
+    mmUndoStack = []; mmRedoStack = []; updateUndoRedoBtns();
     overlay.style.display = 'flex';
     mindmapSelectedId = 'root';
     mindmapEditingId = null;
@@ -167,6 +174,7 @@ function closeMindmap() {
   mindmapSelectedId = null;
   mindmapEditingId = null;
   mindmapHistory = [];
+  mmUndoStack = []; mmRedoStack = [];
   mindmapZoom = 1;
   updateMindmapBackBtn();
   closeMindmapSidePanel();
@@ -177,6 +185,104 @@ function saveMindmap() {
   const mindmaps = getMindmaps();
   mindmaps[mindmapVocabId] = cleanMindmapForSave(mindmapData);
   saveData();
+}
+
+// ===== UNDO / REDO =====
+
+/** Snapshot the current mindmap state for the undo/redo stacks. */
+function mmSnapshotState() {
+  return {
+    data: JSON.parse(JSON.stringify(mindmapData)),
+    selectedId: mindmapSelectedId,
+  };
+}
+
+/**
+ * Push the current state onto the undo stack before a mutation.
+ * @param {string} description  Short label shown in the undo button tooltip.
+ */
+function mmPushUndo(description) {
+  if (!mindmapData) return;
+  mmUndoStack.push({ ...mmSnapshotState(), description: description || '' });
+  if (mmUndoStack.length > MM_UNDO_MAX) mmUndoStack.shift();
+  mmRedoStack = [];  // new action clears redo
+  updateUndoRedoBtns();
+}
+
+/** Undo the last mindmap operation. */
+function mmUndo() {
+  if (!mmUndoStack.length || !mindmapData) return;
+  mmRedoStack.push(mmSnapshotState());
+  const prev = mmUndoStack.pop();
+  mindmapData = prev.data;
+  rebuildParentRefs(mindmapData, null);
+  mindmapSelectedId = prev.selectedId;
+  getMindmaps()[mindmapVocabId] = cleanMindmapForSave(mindmapData);
+  saveData();
+  renderMindmap();
+  updateUndoRedoBtns();
+  if (mindmapSelectedId) openMindmapSidePanel(mindmapSelectedId);
+}
+
+/** Redo the last undone mindmap operation. */
+function mmRedo() {
+  if (!mmRedoStack.length || !mindmapData) return;
+  mmUndoStack.push(mmSnapshotState());
+  const next = mmRedoStack.pop();
+  mindmapData = next.data;
+  rebuildParentRefs(mindmapData, null);
+  mindmapSelectedId = next.selectedId;
+  getMindmaps()[mindmapVocabId] = cleanMindmapForSave(mindmapData);
+  saveData();
+  renderMindmap();
+  updateUndoRedoBtns();
+  if (mindmapSelectedId) openMindmapSidePanel(mindmapSelectedId);
+}
+
+/** Update the enabled/disabled state and tooltips of the undo/redo toolbar buttons. */
+function updateUndoRedoBtns() {
+  const undoBtn = document.getElementById('btn-mindmap-undo');
+  const redoBtn = document.getElementById('btn-mindmap-redo');
+  if (undoBtn) {
+    undoBtn.disabled = mmUndoStack.length === 0;
+    const lastDesc = mmUndoStack.length ? mmUndoStack[mmUndoStack.length - 1].description : '';
+    undoBtn.title = `Undo${lastDesc ? ': ' + lastDesc : ''} (Ctrl+Z)`;
+  }
+  if (redoBtn) {
+    redoBtn.disabled = mmRedoStack.length === 0;
+    const nextDesc = mmRedoStack.length ? mmRedoStack[mmRedoStack.length - 1].description : '';
+    redoBtn.title = `Redo${nextDesc ? ': ' + nextDesc : ''} (Ctrl+Y)`;
+  }
+}
+
+// ===== POST-RENDER CONNECTION FIX =====
+// After the DOM renders (especially after images load), re-draw SVG connection
+// paths using the actual rendered heights of the label boxes so lines connect
+// to the true visual centre even for landscape images whose rendered height
+// is smaller than the estimated one used during layout.
+function redrawConnectionsFromDOM() {
+  const svg = document.getElementById('mindmap-svg');
+  if (!svg || !mindmapData || !_lastMmPositions) return;
+
+  // Map nodeId → actual label-box height from the live DOM
+  const domLh = {};
+  document.querySelectorAll('.mm-node').forEach(el => {
+    const nodeId = el.dataset.nodeId;
+    if (!nodeId) return;
+    const labelEl = el.querySelector('.mm-node-label');
+    if (labelEl) domLh[nodeId] = labelEl.offsetHeight;
+  });
+  if (Object.keys(domLh).length === 0) return;
+
+  // Patch only the lh values; x/y/w/h stay as computed by the layout algorithm
+  const patched = {};
+  Object.keys(_lastMmPositions).forEach(id => {
+    patched[id] = Object.assign({}, _lastMmPositions[id]);
+    if (domLh[id] !== undefined) patched[id].lh = domLh[id];
+  });
+
+  svg.innerHTML = '';
+  drawConnections(mindmapData, patched, svg);
 }
 
 function cleanMindmapForSave(node) {
@@ -242,6 +348,7 @@ function executeMindmapDrop() {
   const currentParent = findParentNode(mindmapData, mmDragNodeId);
   if (!currentParent) return;
 
+  mmPushUndo('reparent node');
   // Remove from current parent
   const idx = currentParent.children.findIndex(c => c.id === mmDragNodeId);
   if (idx !== -1) currentParent.children.splice(idx, 1);
@@ -489,6 +596,7 @@ function renderMindmap() {
   if (!mindmapData) return;
   resolveLinkedChildren(mindmapData);   // inject live linked children before layout
   const positions = computeLayout(mindmapData);
+  _lastMmPositions = positions;          // cache for post-render connection redraw
   const nodesContainer = document.getElementById('mindmap-nodes');
   if (!nodesContainer) return;
   nodesContainer.innerHTML = '';
@@ -537,6 +645,9 @@ function renderMindmap() {
 
   drawConnections(mindmapData, positions, svg);
   renderNodes(mindmapData, positions, nodesContainer, 0);
+  // Schedule a post-render pass to correct line endpoints using actual DOM heights
+  // (fixes landscape images whose rendered height differs from the estimated value).
+  requestAnimationFrame(redrawConnectionsFromDOM);
 }
 
 function drawConnections(node, positions, svg, readonly) {
@@ -679,6 +790,9 @@ function renderNodes(node, positions, container, level, readonly) {
       imgEl.style.height = 'auto';
       imgEl.style.display = 'block';
       imgEl.draggable = false;
+      // Re-draw connections once the image loads so lines point to the actual
+      // visual centre (important for landscape / wide images).
+      imgEl.addEventListener('load', () => redrawConnectionsFromDOM());
       labelEl.appendChild(imgEl);
       if (node.text) {
         const textSpan = document.createElement('span');
@@ -887,6 +1001,7 @@ function saveSidePanelFields() {
 
   const newName = document.getElementById('mm-side-name').value.trim();
   const newDesc = document.getElementById('mm-side-desc').value.trim();
+  mmPushUndo('edit node fields');
   if (newName) node.text = newName;
   node.desc = newDesc;
   saveMindmap();
@@ -910,6 +1025,7 @@ async function aiTranslateNode() {
     });
     const data = await resp.json();
     if (data.result) {
+      mmPushUndo('AI translate');
       node.desc = data.result;
       document.getElementById('mm-side-desc').value = data.result;
       saveMindmap();
@@ -1233,6 +1349,7 @@ function renderVocabPanelMindmapsList() {
 // ===== NODE EDITING =====
 function finishNodeEdit(nodeId, newText) {
   if (!mindmapData) return;
+  mmPushUndo('rename node');
   const node = findNode(mindmapData, nodeId);
   if (node) node.text = newText.trim() || node.text;
   mindmapEditingId = null;
@@ -1254,6 +1371,7 @@ function addChildNode() {
     }
     return;
   }
+  mmPushUndo('add child node');
   const child = createMindmapNode('', parent.id);
   if (!parent.children) parent.children = [];
   parent.children.push(child);
@@ -1269,6 +1387,7 @@ function addSiblingNode() {
   if (mindmapSelectedId === 'root') { addChildNode(); return; }
   const parent = findParentNode(mindmapData, mindmapSelectedId);
   if (!parent) return;
+  mmPushUndo('add sibling node');
   const sibling = createMindmapNode('', parent.id);
   const idx = parent.children.findIndex(c => c.id === mindmapSelectedId);
   parent.children.splice(idx + 1, 0, sibling);
@@ -1294,6 +1413,7 @@ function deleteSelectedNode() {
   if (!parent) return;
   const idx = parent.children.findIndex(c => c.id === mindmapSelectedId);
   if (idx !== -1) {
+    mmPushUndo('delete node');
     parent.children.splice(idx, 1);
     mindmapSelectedId = parent.id;
     mindmapEditingId = null;
@@ -1309,6 +1429,7 @@ function moveNodeUp() {
   if (!parent) return;
   const idx = parent.children.findIndex(c => c.id === mindmapSelectedId);
   if (idx <= 0) return;
+  mmPushUndo('move node up');
   // Swap with previous
   [parent.children[idx - 1], parent.children[idx]] = [parent.children[idx], parent.children[idx - 1]];
   saveMindmap();
@@ -1321,6 +1442,7 @@ function moveNodeDown() {
   if (!parent) return;
   const idx = parent.children.findIndex(c => c.id === mindmapSelectedId);
   if (idx === -1 || idx >= parent.children.length - 1) return;
+  mmPushUndo('move node down');
   // Swap with next
   [parent.children[idx], parent.children[idx + 1]] = [parent.children[idx + 1], parent.children[idx]];
   saveMindmap();
@@ -1333,6 +1455,7 @@ function toggleCollapseNode(nodeId) {
   if (!id) return;
   const node = findNode(mindmapData, id);
   if (!node || !node.children || node.children.length === 0) return;
+  mmPushUndo(node.collapsed ? 'expand node' : 'collapse node');
   node.collapsed = !node.collapsed;
   saveMindmap();
   renderMindmap();
@@ -1346,6 +1469,7 @@ function reverseChildNodes(nodeId) {
   if (!id) return;
   const node = findNode(mindmapData, id);
   if (!node || !node.children || node.children.length < 2) return;
+  mmPushUndo('reverse children');
   node.children.reverse();
   saveMindmap();
   renderMindmap();
@@ -1438,6 +1562,7 @@ async function uploadMindmapImage(blob) {
     if (data.success && data.filename) {
       const node = findNode(mindmapData, mindmapSelectedId);
       if (node) {
+        mmPushUndo('add image');
         node.image = data.filename;
         if (!node.imageSize) node.imageSize = 'small';
         saveMindmap();
@@ -1458,6 +1583,7 @@ async function deleteMindmapImage() {
   if (!confirm('Delete this image?')) return;
 
   const deletingFilename = node.image;
+  mmPushUndo('delete image');
   try {
     await fetch(`${API_BASE}/api/images/delete`, {
       method: 'POST',
@@ -1479,6 +1605,7 @@ function setMindmapImageSize(size) {
   if (!mindmapData || !mindmapSelectedId) return;
   const node = findNode(mindmapData, mindmapSelectedId);
   if (!node) return;
+  mmPushUndo('change image size');
   node.imageSize = size;
   node.imageHidden = false;
   saveMindmap();
@@ -1495,6 +1622,7 @@ function toggleHideNodeImage() {
   if (!mindmapData || !mindmapSelectedId) return;
   const node = findNode(mindmapData, mindmapSelectedId);
   if (!node || !node.image) return;
+  mmPushUndo(node.imageHidden ? 'show node image' : 'hide node image');
   node.imageHidden = !node.imageHidden;
   saveMindmap();
   renderMindmap();
@@ -1520,6 +1648,8 @@ function initMindmapEvents() {
   document.getElementById('btn-mindmap-collapse').addEventListener('click', () => toggleCollapseNode());
   document.getElementById('btn-mindmap-reverse').addEventListener('click', () => reverseChildNodes());
   document.getElementById('btn-mindmap-delete-node').addEventListener('click', deleteSelectedNode);
+  document.getElementById('btn-mindmap-undo').addEventListener('click', mmUndo);
+  document.getElementById('btn-mindmap-redo').addEventListener('click', mmRedo);
 
   // Open from vocab panel
   document.getElementById('btn-vocab-mindmap').addEventListener('click', openMindmap);
@@ -1744,6 +1874,14 @@ function initMindmapEvents() {
 
     if (!mindmapData) return;
 
+    // Undo / Redo shortcuts
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault(); e.stopPropagation(); mmUndo(); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+      e.preventDefault(); e.stopPropagation(); mmRedo(); return;
+    }
+
     switch (e.key) {
       case 'Tab':
         e.preventDefault(); addChildNode(); break;
@@ -1770,5 +1908,81 @@ function initMindmapEvents() {
     }
   });
 }
+
+// ===== PUBLIC JAVASCRIPT API =====
+// Access via: window.mindmapAPI.undo()  /  window.mindmapAPI.redo()  etc.
+window.mindmapAPI = {
+  /** Undo the last mindmap change. */
+  undo:                mmUndo,
+  /** Redo the last undone change. */
+  redo:                mmRedo,
+  /** Returns true when there is at least one step to undo. */
+  canUndo:             () => mmUndoStack.length > 0,
+  /** Returns true when there is at least one step to redo. */
+  canRedo:             () => mmRedoStack.length > 0,
+  /** Returns the description labels of all undo steps (oldest → newest). */
+  getUndoDescriptions: () => mmUndoStack.map(s => s.description),
+  /** Returns the description labels of all redo steps (oldest → newest). */
+  getRedoDescriptions: () => mmRedoStack.map(s => s.description),
+  /** Clear both undo and redo history. */
+  clearHistory:        () => { mmUndoStack = []; mmRedoStack = []; updateUndoRedoBtns(); },
+  /**
+   * Save a named server-side checkpoint for cross-session recovery.
+   * @param {string} label  Human-readable name (e.g. "before big refactor").
+   * @returns {Promise<{id, vocabId, label, createdAt}>}
+   */
+  saveCheckpoint: async (label = 'manual checkpoint') => {
+    if (!mindmapData || !mindmapVocabId) throw new Error('No mindmap open');
+    const resp = await fetch(`${API_BASE}/api/mindmap/checkpoint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vocabId: mindmapVocabId, label, data: cleanMindmapForSave(mindmapData) }),
+    });
+    if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+    return resp.json();
+  },
+  /**
+   * List all server-side checkpoints for the current mindmap.
+   * @returns {Promise<Array<{id, vocabId, label, createdAt}>>}
+   */
+  listCheckpoints: async () => {
+    if (!mindmapVocabId) return [];
+    const resp = await fetch(`${API_BASE}/api/mindmap/checkpoints/${encodeURIComponent(mindmapVocabId)}`);
+    if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+    const json = await resp.json();
+    return json.checkpoints || [];
+  },
+  /**
+   * Restore the mindmap from a server-side checkpoint.
+   * @param {string} checkpointId  The id returned by saveCheckpoint / listCheckpoints.
+   */
+  restoreCheckpoint: async (checkpointId) => {
+    if (!mindmapVocabId) throw new Error('No mindmap open');
+    const resp = await fetch(`${API_BASE}/api/mindmap/checkpoint/${encodeURIComponent(mindmapVocabId)}/${encodeURIComponent(checkpointId)}`);
+    if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+    const cp = await resp.json();
+    mmPushUndo('restore checkpoint');
+    mindmapData = cp.data;
+    rebuildParentRefs(mindmapData, null);
+    getMindmaps()[mindmapVocabId] = cleanMindmapForSave(mindmapData);
+    saveMindmap();
+    renderMindmap();
+    updateUndoRedoBtns();
+  },
+  /**
+   * Query the server for undo status (acknowledgement only – undo state lives
+   * on the client, but this is useful for debugging / monitoring).
+   */
+  reportUndoStatus: () => {
+    const params = new URLSearchParams({
+      vocabId:   mindmapVocabId || '',
+      canUndo:   String(mmUndoStack.length > 0),
+      canRedo:   String(mmRedoStack.length > 0),
+      undoCount: mmUndoStack.length,
+      redoCount: mmRedoStack.length,
+    });
+    return fetch(`${API_BASE}/api/mindmap/undo/status?${params}`).then(r => r.json());
+  },
+};
 
 document.addEventListener('DOMContentLoaded', init);

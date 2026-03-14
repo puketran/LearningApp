@@ -27,6 +27,7 @@ def create_app() -> Flask:
     from .routes.ai import ai_bp
     from .routes.books import books_bp
     from .routes.images import images_bp
+    from .routes.mindmap import mindmap_bp
     from .routes.recordings import recordings_bp
     from .routes.settings import settings_bp
     from .routes.tts import tts_bp
@@ -68,6 +69,7 @@ def create_app() -> Flask:
     # ── Register feature blueprints ──────────────────────────────────────────
     app.register_blueprint(ai_bp)           # /api/explain, /api/translate, …
     app.register_blueprint(books_bp)        # /api/books/*
+    app.register_blueprint(mindmap_bp)      # /api/mindmap/*  (undo checkpoints)
     app.register_blueprint(tts_bp)          # /api/tts/*, /audios/<file>
     app.register_blueprint(recordings_bp)   # /api/recordings/*, /recordings/<file>
     app.register_blueprint(images_bp)       # /api/images/*, /images/<file>
